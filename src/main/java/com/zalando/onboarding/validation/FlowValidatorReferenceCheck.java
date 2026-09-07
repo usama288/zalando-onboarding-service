@@ -1,14 +1,14 @@
-package com.zalando.onboarding.flow;
+package com.zalando.onboarding.validation;
 
 import com.zalando.onboarding.domain.Country;
-import com.zalando.onboarding.validation.FieldValidator;
+import com.zalando.onboarding.flow.FieldDefinition;
+import com.zalando.onboarding.flow.FlowConfigurationException;
+import com.zalando.onboarding.flow.FlowDefinition;
+import com.zalando.onboarding.flow.FlowDefinitionRepository;
+import com.zalando.onboarding.flow.SectionDefinition;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 
@@ -20,23 +20,23 @@ import org.springframework.stereotype.Component;
  * refuse to start.
  *
  * <p>Deliberately checked against {@link FlowDefinitionRepository} rather than inside the
- * YAML loader, so the rule survives flow definitions moving to the database.
+ * YAML loader, so the rule survives flow definitions moving to the database. It lives in
+ * this package so the dependency runs validation -> flow only, never back.
  */
 @Component
 public class FlowValidatorReferenceCheck implements InitializingBean {
 
     private final FlowDefinitionRepository flows;
-    private final List<FieldValidator> validators;
+    private final ValidatorRegistry registry;
 
-    public FlowValidatorReferenceCheck(FlowDefinitionRepository flows, List<FieldValidator> validators) {
+    public FlowValidatorReferenceCheck(FlowDefinitionRepository flows, ValidatorRegistry registry) {
         this.flows = flows;
-        this.validators = validators;
+        this.registry = registry;
     }
 
     @Override
     public void afterPropertiesSet() {
-        Map<String, FieldValidator> byName = indexByName();
-        Set<String> known = new TreeSet<>(byName.keySet());
+        Set<String> known = registry.names();
         List<String> unresolved = new ArrayList<>();
 
         for (Country country : Country.values()) {
@@ -44,7 +44,7 @@ public class FlowValidatorReferenceCheck implements InitializingBean {
             for (SectionDefinition section : flow.sections()) {
                 for (FieldDefinition field : section.fields()) {
                     for (String validator : field.validators()) {
-                        if (!known.contains(validator)) {
+                        if (!registry.contains(validator)) {
                             unresolved.add("  '%s' at %s / %s / %s"
                                     .formatted(validator, country, section.id(), field.name()));
                         }
@@ -68,23 +68,4 @@ public class FlowValidatorReferenceCheck implements InitializingBean {
         }
     }
 
-    /** Two beans claiming one name is as broken as a name claiming no bean. */
-    private Map<String, FieldValidator> indexByName() {
-        Map<String, FieldValidator> byName = new HashMap<>();
-        Set<String> duplicates = new LinkedHashSet<>();
-        for (FieldValidator validator : validators) {
-            FieldValidator previous = byName.put(validator.name(), validator);
-            if (previous != null) {
-                duplicates.add("'%s' claimed by both %s and %s".formatted(
-                        validator.name(),
-                        previous.getClass().getName(),
-                        validator.getClass().getName()));
-            }
-        }
-        if (!duplicates.isEmpty()) {
-            throw new FlowConfigurationException(
-                    "Duplicate FieldValidator names:\n  " + String.join("\n  ", duplicates));
-        }
-        return byName;
-    }
 }
