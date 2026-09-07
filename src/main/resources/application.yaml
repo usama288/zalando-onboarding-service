@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: zalando-onboarding-service
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/onboarding}
+    username: ${SPRING_DATASOURCE_USERNAME:onboarding}
+    password: ${SPRING_DATASOURCE_PASSWORD:onboarding}
+    hikari:
+      maximum-pool-size: 10
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; Hibernate only checks the mapping matches it.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    # Errors are rendered as RFC 7807 problem+json by the api.error package,
+    # never by the servlet container's default page.
+    whitelabel:
+      enabled: false
+
+logging:
+  level:
+    com.zalando.onboarding: DEBUG
