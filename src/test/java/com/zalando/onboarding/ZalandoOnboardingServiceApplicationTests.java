@@ -2,21 +2,14 @@ package com.zalando.onboarding;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.context.annotation.Import;
 
 @SpringBootTest
-@Testcontainers
+@Import(TestcontainersConfiguration.class)
 class ZalandoOnboardingServiceApplicationTests {
-
-    /** Same Postgres major version as docker-compose, so Flyway runs against the real thing. */
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Test
     void contextLoads() {
+        // Also asserts, via ddl-auto=validate, that the entity still matches V1__init.sql.
     }
 }
