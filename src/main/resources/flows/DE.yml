@@ -1,0 +1,157 @@
+# Flow definition for Germany.
+#
+# Country variation lives here, never in Java branches. Compare against PL.yml and NL.yml:
+#   - address.postalCode  : same field, different pattern
+#   - taxInformation      : different fields entirely (taxNumber/vatId vs nip vs btwId)
+#   - businessRegistry    : different fields entirely (Handelsregister vs CEIDG vs KvK)
+#   - consent             : same five items everywhere; only the creditCheck version
+#                           differs, since the bureau named in the text differs
+country: DE
+schemaVersion: 1
+
+sections:
+  - id: personalDetails
+    step: PERSONAL_DETAILS
+    title: Personal details
+    fields:
+      - name: firstName
+        type: TEXT
+        required: true
+        maxLength: 100
+      - name: lastName
+        type: TEXT
+        required: true
+        maxLength: 100
+      - name: dateOfBirth
+        type: DATE
+        required: true
+        validators: [adult]
+      - name: nationality
+        type: TEXT
+        required: true
+        maxLength: 2
+        pattern: "^[A-Z]{2}$"
+
+  - id: address
+    step: ADDRESS
+    title: Business address
+    # No country field: it is fixed to the application country and rendered read-only.
+    fields:
+      - name: street
+        type: TEXT
+        required: true
+        maxLength: 200
+      - name: houseNumber
+        type: TEXT
+        required: true
+        maxLength: 20
+      - name: postalCode
+        type: TEXT
+        required: true
+        pattern: "^\\d{5}$"
+      - name: city
+        type: TEXT
+        required: true
+        maxLength: 100
+
+  - id: taxInformation
+    step: TAX_INFORMATION
+    title: Tax information
+    fields:
+      - name: taxNumber
+        type: TEXT
+        required: true
+        maxLength: 20
+      - name: vatRegistered
+        type: BOOLEAN
+        required: true
+      - name: vatId
+        type: TEXT
+        required: true
+        maxLength: 20
+        validators: [vatIdDe]
+        requiredWhen:
+          field: vatRegistered
+          equals: "true"
+
+  - id: businessRegistry
+    step: BUSINESS_REGISTRY
+    title: Business registry
+    # A German sole trader is often a Kleingewerbe with no Handelsregister entry at all,
+    # which is why this section is gated on a boolean rather than demanding a number.
+    fields:
+      - name: registered
+        type: BOOLEAN
+        required: true
+      # HRA vs HRB is not optional once someone declares they are registered.
+      - name: registryType
+        type: TEXT
+        required: true
+        maxLength: 20
+        requiredWhen:
+          field: registered
+          equals: "true"
+      - name: registrationNumber
+        type: TEXT
+        required: true
+        maxLength: 30
+        requiredWhen:
+          field: registered
+          equals: "true"
+      - name: registerCourt
+        type: TEXT
+        required: true
+        maxLength: 100
+        requiredWhen:
+          field: registered
+          equals: "true"
+      - name: registeredBusinessName
+        type: TEXT
+        required: false
+        maxLength: 200
+
+  - id: paymentDetails
+    step: PAYMENT_DETAILS
+    title: Payout details
+    fields:
+      - name: accountHolder
+        type: TEXT
+        required: true
+        maxLength: 200
+      - name: iban
+        type: TEXT
+        required: true
+        maxLength: 34
+        validators: [iban]
+
+  - id: consent
+    step: CONSENT
+    title: Consents
+    # The item set is identical in all three countries: the same five, all required.
+    # The only per-country difference is the creditCheck version, because the bureau
+    # named in that consent text differs per market. The engine supports a genuinely
+    # different item set -- see FlowVariationCapabilityTest -- but these markets do not
+    # have one, and inventing a difference here to demonstrate the capability would put
+    # fiction into shipped configuration.
+    fields:
+      - name: informationConfirmed
+        type: CONSENT
+        required: true
+        version: "2026-01"
+      - name: termsOfService
+        type: CONSENT
+        required: true
+        version: "2026-01"
+      - name: dataProcessing
+        type: CONSENT
+        required: true
+        version: "2026-01"
+      - name: privacyNotice
+        type: CONSENT
+        required: true
+        version: "2026-01"
+      # SCHUFA in Germany.
+      - name: creditCheck
+        type: CONSENT
+        required: true
+        version: "de-schufa-2026-01"

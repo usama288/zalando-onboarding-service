@@ -27,6 +27,9 @@ dependencies {
     implementation 'org.flywaydb:flyway-database-postgresql'
     runtimeOnly 'org.postgresql:postgresql'
 
+    // Flow definitions are YAML bound straight to records, with unknown keys rejected.
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml'
+
     implementation 'org.iban4j:iban4j:3.2.14-RELEASE'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

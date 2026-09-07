@@ -1,0 +1,128 @@
+# Flow definition for the Netherlands. See DE.yml for what varies and why.
+country: NL
+schemaVersion: 1
+
+sections:
+  - id: personalDetails
+    step: PERSONAL_DETAILS
+    title: Personal details
+    fields:
+      - name: firstName
+        type: TEXT
+        required: true
+        maxLength: 100
+      - name: lastName
+        type: TEXT
+        required: true
+        maxLength: 100
+      - name: dateOfBirth
+        type: DATE
+        required: true
+        validators: [adult]
+      - name: nationality
+        type: TEXT
+        required: true
+        maxLength: 2
+        pattern: "^[A-Z]{2}$"
+
+  - id: address
+    step: ADDRESS
+    title: Business address
+    fields:
+      - name: street
+        type: TEXT
+        required: true
+        maxLength: 200
+      - name: houseNumber
+        type: TEXT
+        required: true
+        maxLength: 20
+      - name: postalCode
+        type: TEXT
+        required: true
+        pattern: "^\\d{4} ?[A-Za-z]{2}$"
+      - name: city
+        type: TEXT
+        required: true
+        maxLength: 100
+
+  - id: taxInformation
+    step: TAX_INFORMATION
+    title: Tax information
+    # No unconditional tax number here: a Dutch eenmanszaak is identified by its KvK number,
+    # which lives in the registry section, so tax is only the VAT question.
+    fields:
+      - name: vatRegistered
+        type: BOOLEAN
+        required: true
+      - name: btwId
+        type: TEXT
+        required: true
+        maxLength: 20
+        requiredWhen:
+          field: vatRegistered
+          equals: "true"
+
+  - id: businessRegistry
+    step: BUSINESS_REGISTRY
+    title: Business registry
+    fields:
+      - name: kvkNumber
+        type: TEXT
+        required: true
+        maxLength: 8
+        validators: [kvk]
+      - name: tradeName
+        type: TEXT
+        required: true
+        maxLength: 200
+      - name: sbiCode
+        type: TEXT
+        required: true
+        maxLength: 6
+
+  - id: paymentDetails
+    step: PAYMENT_DETAILS
+    title: Payout details
+    fields:
+      - name: accountHolder
+        type: TEXT
+        required: true
+        maxLength: 200
+      - name: iban
+        type: TEXT
+        required: true
+        maxLength: 34
+        validators: [iban]
+
+  - id: consent
+    step: CONSENT
+    title: Consents
+    # The item set is identical in all three countries: the same five, all required.
+    # The only per-country difference is the creditCheck version, because the bureau
+    # named in that consent text differs per market. The engine supports a genuinely
+    # different item set -- see FlowVariationCapabilityTest -- but these markets do not
+    # have one, and inventing a difference here to demonstrate the capability would put
+    # fiction into shipped configuration.
+    fields:
+      - name: informationConfirmed
+        type: CONSENT
+        required: true
+        version: "2026-01"
+      - name: termsOfService
+        type: CONSENT
+        required: true
+        version: "2026-01"
+      - name: dataProcessing
+        type: CONSENT
+        required: true
+        version: "2026-01"
+      - name: privacyNotice
+        type: CONSENT
+        required: true
+        version: "2026-01"
+      # BKR in the Netherlands.
+      - name: creditCheck
+        type: CONSENT
+        required: true
+        version: "nl-bkr-2026-01"

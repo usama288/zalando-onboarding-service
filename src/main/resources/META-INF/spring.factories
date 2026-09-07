@@ -1,0 +1,3 @@
+# Turns a FlowConfigurationException into Boot's readable startup banner.
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+com.zalando.onboarding.flow.FlowConfigurationFailureAnalyzer
