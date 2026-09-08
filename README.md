@@ -38,18 +38,17 @@ produced.
 docker compose up --build
 ```
 
-Open <http://localhost:8080/>. Ports 8080 and 5432. Nothing but Docker is needed; the JDK and
-Gradle run inside the build image. The first build takes a few minutes, later ones seconds.
-
-Ready when `curl -sf http://localhost:8080/api/flows` returns 200. There is no Actuator
-dependency, so there is no `/actuator/health`.
+Open <http://localhost:8080> — that is the applicant-facing web app, served from the same jar.
+Pick a country, work through the six steps, submit, and look the reference up. Ports 8080 and
+5432. Nothing but Docker is needed; the JDK and Gradle run inside the build image. The first
+build takes a few minutes, later ones seconds.
 
 Flyway applies `V1__init.sql` at startup; no manual database step. Stop with `Ctrl-C`, then
-`docker compose down`. Adding `-v` deletes the volume — **that erases every application in it**.
+`docker compose down`; `-v` also deletes the volume and every application in it.
 
-The Compose stack runs with `SPRING_PROFILES_ACTIVE=dev`, which enables the outbox endpoint
-described below. Do not set that profile in a deployed environment: it has no authentication in
-front of it and its payloads are bearer credentials.
+The Compose stack sets `SPRING_PROFILES_ACTIVE=dev`, which enables the outbox endpoint below —
+do not set it in a deployed environment, since its payloads are bearer credentials and nothing
+authenticates in front of it.
 
 ### Gradle — local development
 
@@ -58,10 +57,7 @@ docker compose up -d postgres
 SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
 ```
 
-Needs Docker (for PostgreSQL) and **JDK 21**. Gradle comes from the wrapper. There is no Maven
-wrapper — every command is `./gradlew`.
-
-Stop with `Ctrl-C`, then `docker compose stop postgres`.
+Needs Docker (for PostgreSQL) and **JDK 21**. Gradle comes from the wrapper.
 
 ### Tests
 
@@ -69,49 +65,11 @@ Stop with `Ctrl-C`, then `docker compose stop postgres`.
 ./gradlew test
 ```
 
-**188 tests, 0 failures**, about 12 seconds from clean. Gradle prints `UP-TO-DATE` and skips the
-suite when nothing has changed — use `./gradlew clean test` to force a run. One class:
-
-```bash
-./gradlew test --tests 'com.zalando.onboarding.api.OnboardingApiTest'
-```
+**188 tests, 0 failures**, about 12 seconds from clean.
 
 **Docker is required**: 44 tests boot a Spring context against a real PostgreSQL 16 container
 via Testcontainers. The other 144 are plain JUnit — no Docker, no Spring, no database. There is
-no H2, so the JSONB mapping and `ddl-auto: validate` are genuinely exercised. When the suite
-fails locally the cause is almost always the Docker daemon not running, or a JDK that is not 21.
-
----
-
-## About the tests
-
-**188 test cases from 152 test methods** — 139 plain `@Test`, plus 13 `@ParameterizedTest`
-methods contributing 49 data rows (checksum vectors, date formats, per-country repeats).
-
-| Area | Cases |
-|---|---:|
-| Validators — both layers, checksums, per-country rules | 99 |
-| API — HTTP behaviour, gating, submission, error contract | 37 |
-| Flow configuration — YAML loading, resume derivation, variation | 34 |
-| Decisioning | 11 |
-| Service and transitions — timestamps, token entropy | 7 |
-
-The service's transition rules are deliberately tested *through* the API rather than against the
-service directly. With no authentication a client can call any endpoint in any order, so those
-rules only mean something when asserted over HTTP.
-
-**The eight that carry the design.** These are the ones that would catch a real regression:
-
-| Test | What breaks if it fails |
-|---|---|
-| `OnboardingApiTest.twoSimultaneousSubmitsMintOneReference` | Two real threads race the conditional `UPDATE`. A double-click mints two references. This is the only test that reaches the zero-rows branch — a sequential double submit short-circuits before it |
-| `OnboardingApiTest.forwardGatingBlocksSkippingAStep` | A client `PUT`s straight at step 3 and the server takes it |
-| `OnboardingApiTest.lastCompletedStepNeverMovesBackward` | Correcting step 1 drags progress back to step 1. Asserted against the row, not the response |
-| `OnboardingApiTest.submittingAHalfFilledDraftReportsSectionMissingPerMissingSection` | Layer 2 stops being what makes submission safe without auth |
-| `SectionValidatorTest.aTaxPayloadValidInOneCountryIsRefusedInAnother` | Country variation quietly stops varying — the same payload must pass DE and fail PL |
-| `ResumeDerivationTest.derivationWalksTheCountryFlowNotTheEnumOrder` | Resume follows the enum's declaration order instead of the country's flow. The fixture omits `ADDRESS` on purpose, so a flow that skips a section still resumes correctly |
-| `SectionValidatorTest.aRequiredConsentSentAsFalseIsRefusedExactlyLikeAnAbsentOne` | A refused consent counts as an answer, and an application submits with terms declined |
-| `MockDecisionEngineTest` — APPROVE, REFER, DECLINE | Decisioning stops being deterministic, at which point every other assertion about it is meaningless |
+no H2, so the JSONB mapping and `ddl-auto: validate` are genuinely exercised.
 
 ---
 
@@ -217,6 +175,8 @@ Tick **all five** consents; the form omits unchecked ones, so the server rejects
 application. Enter the NIP with hyphens: accepted, and Review shows `8567346215`, the stored
 form. Edit the URL to `#/apply/consent` from step 2: bounced back with an explanation.
 
+---
+
 ## Where the resume link is
 
 Nothing is emailed. A `NotificationPort` and an outbox adapter exist; there is no provider,
@@ -231,6 +191,38 @@ curl -s localhost:8080/api/dev/outbox | python3 -m json.tool | grep resumeUrl
 Open that URL in a private window: it stores the token in that browser and strips it from the
 address bar. The frontend also shows the link on screen once, immediately after an application
 is created — with no delivery, that is the only route back if the browser forgets.
+
+---
+
+## About the tests
+
+**188 test cases from 152 test methods** — 139 plain `@Test`, plus 13 `@ParameterizedTest`
+methods contributing 49 data rows (checksum vectors, date formats, per-country repeats).
+
+| Area | Cases |
+|---|---:|
+| Validators — both layers, checksums, per-country rules | 99 |
+| API — HTTP behaviour, gating, submission, error contract | 37 |
+| Flow configuration — YAML loading, resume derivation, variation | 34 |
+| Decisioning | 11 |
+| Service and transitions — timestamps, token entropy | 7 |
+
+The service's transition rules are deliberately tested *through* the API rather than against the
+service directly. With no authentication a client can call any endpoint in any order, so those
+rules only mean something when asserted over HTTP.
+
+**The eight that carry the design.** These are the ones that would catch a real regression:
+
+| Test | What breaks if it fails |
+|---|---|
+| `OnboardingApiTest.twoSimultaneousSubmitsMintOneReference` | Two real threads race the conditional `UPDATE`. A double-click mints two references. This is the only test that reaches the zero-rows branch — a sequential double submit short-circuits before it |
+| `OnboardingApiTest.forwardGatingBlocksSkippingAStep` | A client `PUT`s straight at step 3 and the server takes it |
+| `OnboardingApiTest.lastCompletedStepNeverMovesBackward` | Correcting step 1 drags progress back to step 1. Asserted against the row, not the response |
+| `OnboardingApiTest.submittingAHalfFilledDraftReportsSectionMissingPerMissingSection` | Layer 2 stops being what makes submission safe without auth |
+| `SectionValidatorTest.aTaxPayloadValidInOneCountryIsRefusedInAnother` | Country variation quietly stops varying — the same payload must pass DE and fail PL |
+| `ResumeDerivationTest.derivationWalksTheCountryFlowNotTheEnumOrder` | Resume follows the enum's declaration order instead of the country's flow. The fixture omits `ADDRESS` on purpose, so a flow that skips a section still resumes correctly |
+| `SectionValidatorTest.aRequiredConsentSentAsFalseIsRefusedExactlyLikeAnAbsentOne` | A refused consent counts as an answer, and an application submits with terms declined |
+| `MockDecisionEngineTest` — APPROVE, REFER, DECLINE | Decisioning stops being deterministic, at which point every other assertion about it is meaningless |
 
 ---
 
