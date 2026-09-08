@@ -1,7 +1,7 @@
 # Architecture notes
 
 How this is put together and why. [ASSUMPTIONS.md](ASSUMPTIONS.md) holds the assumptions and
-the trade-off register (A1–A21, T-1–T-10); this document cites those identifiers rather than
+the trade-off register (A1–A21, T-1–T-11); this document cites those identifiers rather than
 repeating them. [Bugs.md](Bugs.md) holds what is known and still open.
 
 ---
@@ -198,16 +198,13 @@ The register lives in [ASSUMPTIONS.md](ASSUMPTIONS.md) §7. The ones that shaped
 - **T-7** — notification port built, integration stubbed to an outbox.
 - **T-9** — flow definitions unversioned; the limitation is stated rather than solved.
 - **T-10** — one table, all section content in one JSONB column, discussed above.
+- **T-11** — three static frontend files, no framework and no build step.
 
-Two smaller decisions worth naming, since a reviewer will see them:
+Two notes a reviewer will want, which the register does not carry:
 
-**Vanilla JavaScript, no framework.** The flow is linear and the shared client state is one
-token plus the server's own `resumeStep`. A framework would add a build pipeline and a
-dependency surface to keep patched, for a page whose hardest problem is rendering the field the
-API described — and the fields come from configuration anyway, so a component library would
-mostly wrap a `switch` on field type. This stops being the right call when the workflow becomes
-non-linear, when a design system needs sharing with other applications, or when more than one or
-two people work on the frontend at once.
+**When the frontend choice (T-11) stops being right.** When the workflow becomes non-linear,
+when a design system needs sharing with other applications, or when more than one or two people
+work on the frontend at once. None of those is true here.
 
 **Static assets are served `no-cache`.** `index.html`, `app.js` and `styles.css` carry no hash
 in their filenames, so `no-cache` — keep it, but always revalidate — costs one conditional

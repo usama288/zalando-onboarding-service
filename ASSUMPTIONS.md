@@ -195,15 +195,10 @@ Uniqueness is therefore checked at submit. Duplicate drafts are permitted and ha
 
 Country and email are both captured at step 0 but behave differently:
 
-| | Changeable within a draft? | Why |
+| | Editable within a draft? | Why |
 |---|---|---|
-| **country** | No, by design | selects the flow — changing it strands completed sections |
-| **email** | Not in V1, but not immutable either | shapes nothing, so nothing prevents it |
-
-Email is not immutable at the domain level — `Application.changeApplicantEmail` enforces the
-draft-only rule — but V1 exposes no endpoint or UI to change it. Recovering from a mistyped
-address means starting a new draft, which A7 already establishes is harmless, since uniqueness
-is enforced only at submit. Exposing the edit is a follow-up, not a redesign.
+| **country** | No | selects the flow — changing it strands completed sections |
+| **email** | Yes | shapes nothing; a mistyped address must be recoverable |
 
 **Known limitation (T-4):** with no authentication, any *on-screen* "this email has already
 applied" message is an enumeration oracle. V1 avoids this by never looking an email up on
@@ -409,6 +404,7 @@ language. Localisation is a follow-up.
 | **T-8** | No email verification in V1; link issued but not required | Gate the form on the link | Verification is weak auth and needs notifications — both out of scope. The upgrade is one guard, documented in **A20**. |
 | **T-9** | Flow definitions unversioned | Pin a flow version per application | Speculative at this size; config ships with the artifact. Limitation stated in **A21**. |
 | **T-10** | One table, all sections in one JSONB column | A row per section in an `application_sections` table | One entity and one repository fits the timebox, and **FR5** becomes a single read. Cost: concurrent saves to different sections contend on one row, handled with optimistic locking, and the blob needs `schema_version` to stay readable. |
+| **T-11** | Frontend is three static files — plain HTML, CSS and ES modules, no framework and no build step | React (or similar) with a bundler; or server-rendered templates | The webapp must run from a clean clone with `docker compose up`. A node toolchain adds a build step to the run instructions, a lockfile and `node_modules` to the repository, and a second thing that can fail on a reviewer's machine — for a six-screen form. It also has less to manage than it looks: because every field renders from the flow definition (**T-6**), the per-country complexity a component framework would organise does not exist on the client at all. Server-rendered templates were the other option, but the brief specifies a REST API, and templates would have meant the form did not consume it. Cost: no component model, no client-side test framework, and hand-written DOM updates. The UI is functional rather than polished, which the brief explicitly permits — *"prioritize clarity, structure, and reasoning over visual polish."* |
 
 ---
 
