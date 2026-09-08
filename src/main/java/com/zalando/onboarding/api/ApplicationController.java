@@ -59,6 +59,8 @@ public class ApplicationController {
                 application.getApplicantEmail(),
                 application.getLastCompletedStep().orElse(null),
                 resumeStep(application, flow),
+                application.getReference().orElse(null),
+                application.getSubmittedAt().orElse(null),
                 application.getFormData(),
                 flow);
     }

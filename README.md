@@ -29,8 +29,7 @@ Flyway · vanilla ES-module JavaScript. No frontend build step, no npm, no frame
 
 **Scope.** This is a deliberately small MVP built to a ~5-hour timebox. Read
 [ASSUMPTIONS.md](ASSUMPTIONS.md) for the reasoning behind each decision and
-[Bugs.md](Bugs.md) for known defects — including several found while writing this README and
-left open on purpose rather than quietly patched.
+[Bugs.md](Bugs.md) for the defects that are known and still open.
 
 ---
 
@@ -80,9 +79,9 @@ Then open **<http://localhost:8080/>**.
 > There is no Spring Boot Actuator dependency, so **there is no `/actuator/health`**. Use
 > `GET /api/flows` as the readiness check.
 
-> The Compose `app` service does not set `SPRING_PROFILES_ACTIVE`, so `GET /api/dev/outbox`
-> returns **404** in this stack. If you want to see resume links, use the local-development
-> path below. Tracked as B7 in [Bugs.md](Bugs.md).
+> The Compose `app` service runs with `SPRING_PROFILES_ACTIVE=dev`, so `GET /api/dev/outbox`
+> is available and resume links can be demonstrated. Do **not** set that profile in a deployed
+> environment: the endpoint has no authentication and its payloads are bearer credentials.
 
 ### Local development — Postgres in Docker, app on your machine
 
@@ -151,19 +150,19 @@ translate directly, with `set SPRING_PROFILES_ACTIVE=dev` replacing the inline v
 ./gradlew test
 ```
 
-**178 tests, 0 failures**, about 12 seconds from clean on a warm Gradle daemon.
+**186 tests, 0 failures**, about 12 seconds from clean on a warm Gradle daemon.
 
 Add `clean` (`./gradlew clean test`) to force a full re-run — Gradle reports `UP-TO-DATE` and
 skips the suite when nothing has changed.
 
-**Docker is required.** 36 of the 178 tests boot a Spring context against a real PostgreSQL 16
-container via Testcontainers (`TestcontainersConfiguration`). The other 142 are plain JUnit
+**Docker is required.** 42 of the 186 tests boot a Spring context against a real PostgreSQL 16
+container via Testcontainers (`TestcontainersConfiguration`). The other 144 are plain JUnit
 with no Docker, no Spring and no database.
 
 | Category | Tests | Needs Docker | Covers |
 |---|---:|---|---|
-| Validators, flow config and decisioning | 142 | no | checksum algorithms, per-country patterns, YAML loading, resume derivation, both validation layers, every decision branch |
-| API and persistence | 36 | yes | HTTP behaviour end to end, gating, submission, the recorded decision, timestamps, token entropy, the dev outbox |
+| Validators, flow config and decisioning | 144 | no | checksum algorithms, per-country patterns, YAML loading, resume derivation, both validation layers, every decision branch |
+| API and persistence | 42 | yes | HTTP behaviour end to end, gating, submission, the recorded decision, timestamps, token entropy, the dev outbox |
 
 There is **no H2 and no in-memory database**. The integration tests run against the same
 PostgreSQL major version as production, so `ddl-auto: validate` and the JSONB mapping are
@@ -228,10 +227,11 @@ curl -s localhost:8080/api/dev/outbox | python3 -m json.tool | grep resumeUrl
 Open that URL in a private window — it drops the token into that browser and removes it from
 the address bar.
 
-> **Draft recovery is same-browser only.** The resume credential lives in `localStorage`.
-> Clearing site data, switching browsers or moving to another device loses access
-> permanently, because no email is ever sent. This is the documented MVP boundary, and the
-> silent-failure case is recorded as B3 in [Bugs.md](Bugs.md).
+> **Draft recovery depends on the link.** The resume credential lives in `localStorage`, so
+> clearing site data or switching device loses it — and no email is ever sent. That is why the
+> link is shown on screen once, immediately after the application is created: it is the only
+> route back. A browser that refuses `localStorage` still works for the session, and the token
+> just issued always wins over any older one left in storage.
 
 **7. Review, correct, submit.** Review lists every section with an *Edit* link; the IBAN is
 masked to its last four characters. Editing a section returns you to Review. Press **Submit
@@ -552,14 +552,16 @@ Only what is actually implemented.
 - **Submitted applications cannot be modified**, enforced in the service, the entity and the
   schema.
 - **The frontend never uses `innerHTML`**; all text goes through `textContent`.
+- **Consent records are written by the server.** The client asserts only whether a box was
+  ticked; the version identifying the text agreed to comes from the flow definition and the
+  acceptance time from the server clock.
 
 **Known limitations — stated plainly.**
 
 - **Draft tokens appear in URLs.** The token is a path segment, and the resume link puts it in
   a URL fragment. That is inherent to a bearer-credential design with no login, and it means
-  tokens can reach browser history and any intermediary that logs paths. It also means
-  **error bodies echo the token** in the RFC 7807 `instance` field, which Spring fills from the
-  request URI (recorded as B8 in [Bugs.md](Bugs.md)).
+  tokens can reach browser history and any intermediary that logs paths. Error bodies do *not*
+  carry it: `instance` is set to the route template, never the URI that was called.
 - **Anyone holding a reference can read the whole submitted application**, including name,
   date of birth, tax number and email. That follows directly from "no authentication".
 - **IBAN masking is display-only.** The browser shows the last four characters; the API
@@ -568,17 +570,14 @@ Only what is actually implemented.
   provider. Secure cross-device recovery would need an expiring emailed resume link plus proof
   of email ownership — both depend on notifications, which the assignment excludes.
 - **No rate limiting, no CSRF tokens, no field-level encryption at rest.**
-- **Consent `version` and `acceptedAt` are unvalidated client input** (B2 in
-  [Bugs.md](Bugs.md)). A refused consent is now rejected (B1, fixed), but the acceptance
-  record itself is still whatever the client sends.
 
 ---
 
 ## 13. Testing strategy
 
-161 tests. Each targets a specific way this system could be wrong, not a coverage number.
+186 tests. Each targets a specific way this system could be wrong, not a coverage number.
 
-**Unit — validators and flow configuration (126 tests, no Docker).**
+**Unit — validators and flow configuration (133 tests, no Docker).**
 
 | Risk | Tests |
 |---|---|
@@ -586,12 +585,13 @@ Only what is actually implemented.
 | An age boundary off by a day | `AdultValidatorTest` against a fixed `Clock` |
 | A country's rule silently not applying | `SectionValidatorTest` — each country's postcode rejected by the other two; a validator name with no bean fails startup (`FlowValidatorReferenceCheckTest`, `ValidatorRegistryTest`) |
 | Conditional fields misjudged | `RequiredWhenTest` — coercion, absence, and the opposite answer |
+| A consent treated as answered when it was refused | `SectionValidatorTest` — absent, `false` and accepted are asserted separately |
 | Layer 2 letting an incomplete application through | `SubmissionValidatorTest` — one `SECTION_MISSING` per missing section, per country; credit-check consent enforced in all three markets |
 | Resume derived wrongly | `ResumeDerivationTest` — every country, including "last section done ⇒ REVIEW" |
 | Broken YAML reaching a running app | `YamlFlowDefinitionRepositoryTest` |
 | Config that cannot express real variation | `FlowVariationCapabilityTest` |
 
-**Integration — API and persistence (35 tests, Docker required).** `OnboardingApiTest` drives
+**Integration — API and persistence (42 tests, Docker required).** `OnboardingApiTest` drives
 everything over HTTP against real PostgreSQL, because the rules being asserted exist to survive
 a client that ignores the intended order:
 
@@ -612,14 +612,14 @@ a client that ignores the intended order:
 - `ApplicationTimestampsTest` pins `updated_at` ownership; `SecureTokenGeneratorTest` pins
   token entropy and uniqueness
 
-**Mocked decisioning (12 tests, no Docker).** `MockDecisionEngineTest` covers every branch —
+**Mocked decisioning (11 tests, no Docker).** `MockDecisionEngineTest` covers every branch —
 APPROVE, REFER, DECLINE — plus the properties the branches rest on: a hard flag outranks full
 confidence; a cross-border IBAN alone lowers confidence without referring, because A12 says it
 is legitimate; the debt register is matched against whichever tax field the country declares,
 with separators stripped; and the same application decided twenty times gives an identical
 result, because a mock built on `Random` would make every other assertion here meaningless.
 
-**Not covered.** No test asserts B2 in [Bugs.md](Bugs.md), which is still open. No frontend automated tests — `app.js` was verified by walking a full German
+**Not covered.** No frontend automated tests — `app.js` was verified by walking a full German
 application in a browser, which is honest but not repeatable in CI. No load or security
 testing. No test asserts the consent holes in [Bugs.md](Bugs.md), because they are open.
 
@@ -719,7 +719,7 @@ as the draft; never send it. A dev-profile endpoint exposes it.
 *Why:* the link has to go somewhere, and a port plus a recording adapter costs about half an
 hour and turns a missing feature into a one-line adapter swap. Writing it to the outbox rather
 than a log is deliberate: the link is a bearer credential.
-*Trade-off:* recovery is same-browser only, and its failure mode is currently silent (B3).
+*Trade-off:* recovery depends on the applicant keeping the link, since nothing delivers it.
 *Revisit when:* a notification provider exists — at which point email verification becomes one
 guard on section writes, not a new subsystem.
 
@@ -758,7 +758,10 @@ runtime.
 
 **Deliberate timebox decisions** — could have been built, were not:
 
-- **Email is documented as editable and has no endpoint or UI** (B5 in [Bugs.md](Bugs.md))
+- **No endpoint or UI changes the applicant's email.** The domain permits it on a draft
+  (`Application.changeApplicantEmail`); nothing exposes it, so a mistyped address means
+  starting a new draft — harmless, since uniqueness is enforced only at submit (B5 in
+  [Bugs.md](Bugs.md), documented rather than fixed)
 - Draft recovery is same-browser only, because no email is sent
 - No autosave — only completed, validated steps are persisted, so input on the step being typed
   is lost if the tab closes
@@ -789,8 +792,6 @@ Roughly in the order the MVP's own questions would justify:
 3. **Expiring emailed resume links and verified email ownership** — the resume link and a
    verification link are the same artifact; the difference is only whether the form is gated on
    clicking it
-4. **Server-stamp consent version and acceptance time** rather than trusting the client
-   ([Bugs.md](Bugs.md) B2)
 5. **Real registry, identity and banking adapters**, one country at a time, behind the seams
    that already exist
 6. **Move decisioning onto a queue** — it runs synchronously behind `DecisionEngine` only

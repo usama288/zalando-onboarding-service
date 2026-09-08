@@ -3,6 +3,8 @@ package com.zalando.onboarding.validation;
 import com.zalando.onboarding.flow.FieldDefinition;
 import com.zalando.onboarding.flow.FieldType;
 import com.zalando.onboarding.flow.SectionDefinition;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -27,16 +29,28 @@ import org.springframework.stereotype.Component;
 @Component
 public class SectionValidator {
 
-    private final ValidatorRegistry registry;
+    /** Key of the consent-text identifier stored with each acceptance (A11). */
+    private static final String VERSION = "version";
 
-    public SectionValidator(ValidatorRegistry registry) {
+    /** Key of the moment the acceptance was recorded. */
+    private static final String ACCEPTED_AT = "acceptedAt";
+
+    private final ValidatorRegistry registry;
+    private final Clock clock;
+
+    public SectionValidator(ValidatorRegistry registry, Clock clock) {
         this.registry = registry;
+        this.clock = clock;
     }
 
     public SectionValidation validate(SectionDefinition section, Map<String, Object> values) {
         Map<String, Object> submitted = values == null ? Map.of() : values;
         List<Violation> violations = new ArrayList<>();
         Map<String, Object> normalised = new LinkedHashMap<>();
+
+        // One timestamp for the whole section, so every consent accepted in the same act
+        // carries the same moment rather than drifting across a loop.
+        Instant now = Instant.now(clock);
 
         for (FieldDefinition field : section.fields()) {
             // Normalise before checking. maxLength and pattern constrain what gets stored,
@@ -47,6 +61,10 @@ public class SectionValidator {
             Optional<Violation> violation = validateField(section, field, submitted, value);
             if (violation.isPresent()) {
                 violations.add(violation.get());
+            } else if (field.type() == FieldType.CONSENT) {
+                if (ConsentAcceptance.isAccepted(value)) {
+                    normalised.put(field.name(), acceptance(field, now));
+                }
             } else if (value != null) {
                 normalised.put(field.name(), value);
             }
@@ -106,6 +124,25 @@ public class SectionValidator {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * The acceptance record to store, built here and never taken from the request.
+     *
+     * <p>Whatever version and timestamp the client sent are discarded. A client is entitled
+     * to assert one thing about a consent -- whether the box was ticked -- and nothing else.
+     *
+     * <p>This is what makes A11 hold. Storing only a version identifier is sufficient
+     * *because* the identifier names the text that was agreed to; an identifier the applicant
+     * chooses names nothing, and a client-supplied acceptance time can sit in 2099. The
+     * version comes from the flow definition for this field, and the moment from the server
+     * clock.
+     */
+    private Map<String, Object> acceptance(FieldDefinition field, Instant now) {
+        Map<String, Object> record = new LinkedHashMap<>();
+        record.put(VERSION, field.version());
+        record.put(ACCEPTED_AT, now.toString());
+        return record;
     }
 
     /**

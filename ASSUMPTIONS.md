@@ -195,10 +195,15 @@ Uniqueness is therefore checked at submit. Duplicate drafts are permitted and ha
 
 Country and email are both captured at step 0 but behave differently:
 
-| | Editable within a draft? | Why |
+| | Changeable within a draft? | Why |
 |---|---|---|
-| **country** | No | selects the flow — changing it strands completed sections |
-| **email** | Yes | shapes nothing; a mistyped address must be recoverable |
+| **country** | No, by design | selects the flow — changing it strands completed sections |
+| **email** | Not in V1, but not immutable either | shapes nothing, so nothing prevents it |
+
+Email is not immutable at the domain level — `Application.changeApplicantEmail` enforces the
+draft-only rule — but V1 exposes no endpoint or UI to change it. Recovering from a mistyped
+address means starting a new draft, which A7 already establishes is harmless, since uniqueness
+is enforced only at submit. Exposing the edit is a follow-up, not a redesign.
 
 **Known limitation (T-4):** with no authentication, any *on-screen* "this email has already
 applied" message is an enumeration oracle. V1 avoids this by never looking an email up on

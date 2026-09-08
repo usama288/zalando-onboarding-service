@@ -1,5 +1,6 @@
 package com.zalando.onboarding.flow;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.List;
 
 /**
@@ -54,12 +55,20 @@ public record FieldDefinition(
         }
     }
 
-    /** True when the applicant picks from a list rather than typing. */
+    /**
+     * True when the applicant picks from a list rather than typing.
+     *
+     * <p>{@code @JsonIgnore} because Jackson serialises bean-named accessors on records
+     * alongside the components, and this is a reading convenience, not part of the flow
+     * contract. A client that started depending on it would make it impossible to remove.
+     */
+    @JsonIgnore
     public boolean isChoice() {
         return !options.isEmpty();
     }
 
-    /** True when this field is required no matter what else the section holds. */
+    /** True when this field is required no matter what else the section holds. Not API. */
+    @JsonIgnore
     public boolean isAlwaysRequired() {
         return required && requiredWhen == null;
     }

@@ -457,6 +457,89 @@ class OnboardingApiTest {
                 .andExpect(jsonPath("$.decision").doesNotExist());
     }
 
+    /** B4: the token holder may already read every field, so the reference is not withheld. */
+    @Test
+    void aSubmittedApplicationLoadedByItsTokenCarriesItsReference() throws Exception {
+        String token = completedDraft("DE");
+        String reference = field(mvc.perform(post("/api/applications/{token}/submit", token))
+                .andReturn(), "reference");
+
+        mvc.perform(get("/api/applications/{token}", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUBMITTED"))
+                .andExpect(jsonPath("$.reference").value(reference))
+                .andExpect(jsonPath("$.submittedAt").value(notNullValue()));
+    }
+
+    /** A draft has neither, and they are omitted rather than sent as null. */
+    @Test
+    void aDraftCarriesNoReferenceOrSubmissionTime() throws Exception {
+        mvc.perform(get("/api/applications/{token}", createDraft("DE")))
+                .andExpect(jsonPath("$.reference").doesNotExist())
+                .andExpect(jsonPath("$.submittedAt").doesNotExist());
+    }
+
+    /**
+     * B8: the draft token is a bearer credential and a problem body is the thing people paste
+     * into support tickets. `instance` names the route, never the URI that carried the token.
+     */
+    @Test
+    void aProblemBodyNamesTheRouteAndNeverEchoesTheDraftToken() throws Exception {
+        String token = createDraft("DE");
+
+        String body = mvc.perform(saveSection(token, "personalDetails", Map.of("firstName", "")))
+                .andExpect(status().isBadRequest())
+                // Percent-encoded because a URI template is not a valid URI.
+                .andExpect(jsonPath("$.instance")
+                        .value("/api/applications/%7BdraftToken%7D/sections/%7BsectionId%7D"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).as("no problem body may contain the token").doesNotContain(token);
+    }
+
+    @Test
+    void aNotFoundBodyDoesNotEchoTheTokenThatMissedEither() throws Exception {
+        String body = mvc.perform(get("/api/applications/{token}", "a-token-that-does-not-exist"))
+                .andExpect(status().isNotFound())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain("a-token-that-does-not-exist");
+    }
+
+    /** B6: internal reading helpers are not part of the flow contract. */
+    @Test
+    void theFlowContractCarriesNoDerivedAccessors() throws Exception {
+        String body = mvc.perform(get("/api/flows/{country}", "DE"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain("alwaysRequired").doesNotContain("\"choice\"");
+    }
+
+    /**
+     * B2, end to end: the client says whether a box was ticked. The version identifying the
+     * text agreed to, and the moment of agreement, are the server's to write.
+     */
+    @Test
+    void theStoredConsentCarriesTheFlowsVersionAndAServerTimestamp() throws Exception {
+        String token = createDraft("DE");
+        completeThrough("DE", token, "personalDetails", "address", "taxInformation",
+                "businessRegistry", "paymentDetails");
+
+        Map<String, Object> forged = new LinkedHashMap<>(consents("de-schufa-2026-01"));
+        forged.put("creditCheck", Map.of(
+                "version", "not-a-real-version", "acceptedAt", "2099-01-01T00:00:00Z"));
+
+        mvc.perform(saveSection(token, "consent", forged))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.savedSection.data.creditCheck.version")
+                        .value("de-schufa-2026-01"))
+                .andExpect(jsonPath("$.savedSection.data.creditCheck.acceptedAt")
+                        .value(org.hamcrest.Matchers.startsWith("20")))
+                .andExpect(jsonPath("$.savedSection.data.creditCheck.acceptedAt")
+                        .value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.startsWith("2099"))));
+    }
+
     // --------------------------------------------------------------------------- flow and ids
 
     @Test

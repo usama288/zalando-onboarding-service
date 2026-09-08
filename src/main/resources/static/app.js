@@ -66,14 +66,33 @@ const api = {
  * The draft token, and nothing else. It is a bearer credential, so it is the one thing worth
  * keeping and the one thing worth removing the moment it stops being useful.
  */
+/**
+ * The token for this tab, held in memory as well as in storage.
+ *
+ * The in-memory copy is what makes a failed write safe. Without it, a browser that refuses
+ * localStorage would fall back to whatever token was already there -- silently dropping the
+ * applicant into an earlier application, on a shared machine possibly someone else's. The
+ * stale value is removed rather than left to be picked up, so the worst case becomes "this
+ * session only", which the resume link shown at creation covers.
+ */
+let sessionToken = null;
+
 const store = {
     token() {
+        if (sessionToken) return sessionToken;
         try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
     },
     setToken(token) {
-        try { localStorage.setItem(TOKEN_KEY, token); } catch { /* private mode: resume is simply unavailable */ }
+        sessionToken = token;
+        try {
+            localStorage.setItem(TOKEN_KEY, token);
+        } catch {
+            // Never leave an older token behind to be resumed instead of this one.
+            try { localStorage.removeItem(TOKEN_KEY); } catch { /* nothing more to do */ }
+        }
     },
     clearToken() {
+        sessionToken = null;
         try { localStorage.removeItem(TOKEN_KEY); } catch { /* nothing to do */ }
     },
 };
@@ -117,8 +136,33 @@ function mount(...nodes) {
  */
 let pendingNotice = null;
 
+/** The resume link issued at creation, shown once on the screen that follows. */
+let issuedResumeUrl = null;
+
 function notify(message, tone) {
     pendingNotice = { message, tone: tone || 'info' };
+}
+
+/**
+ * The link back into the application, rendered once and then forgotten.
+ *
+ * No email is sent (A18), so this link is genuinely the only route back if this browser
+ * forgets the token -- a private window, cleared site data, another device. Showing it costs
+ * one card and removes the case where the form promises saved progress it cannot return to.
+ */
+function resumeLinkCard() {
+    if (!issuedResumeUrl) return null;
+    const url = issuedResumeUrl;
+    issuedResumeUrl = null;
+
+    return el('div', { class: 'card card-resume' },
+        el('h2', { text: 'Your link back to this application' }),
+        el('p', { class: 'hint', text: 'We do not email this to you. Save it now — it is how you return if this browser forgets, or if you continue on another device. Anyone with the link can see the application.' }),
+        el('input', {
+            class: 'control', type: 'text', readonly: true, value: url,
+            'aria-label': 'Link back to this application',
+            onfocus: (event) => event.target.select(),
+        }));
 }
 
 /** Renders a pending notice, or clears the bar. Called once per route. */
@@ -395,6 +439,7 @@ async function landing() {
                 form.querySelector('#email').value,
                 form.querySelector('#country').value);
             store.setToken(created.draftToken);
+            issuedResumeUrl = created.resumeUrl;
             const first = created.flow.sections[0];
             go(`/apply/${first.id}`);
         } catch (error) {
@@ -431,6 +476,7 @@ async function continueCard() {
         return null;
     }
 
+
     const next = sectionForStep(view.flow, view.resumeStep);
     return el('div', { class: 'card card-resume' },
         el('h2', { text: 'Continue on this device' }),
@@ -461,7 +507,7 @@ async function step(sectionId) {
     } catch (error) {
         return handleLoadFailure(error);
     }
-    if (view.status !== 'DRAFT') return alreadySubmitted();
+    if (view.status !== 'DRAFT') return alreadySubmitted(view);
 
     const flow = view.flow;
     const section = sectionOf(flow, sectionId);
@@ -503,7 +549,10 @@ async function step(sectionId) {
             const next = flow.sections[position + 1];
             go(saved.resumeStep === 'REVIEW' || !next ? '/review' : `/apply/${next.id}`);
         } catch (error) {
-            if (error.status === 409 && error.code === 'APPLICATION_ALREADY_SUBMITTED') return alreadySubmitted();
+            if (error.status === 409 && error.code === 'APPLICATION_ALREADY_SUBMITTED') {
+                // Re-read so the confirmation can show the reference rather than guess.
+                return api.load(token).then(alreadySubmitted).catch(() => alreadySubmitted(null));
+            }
             showViolations(form, error);
         } finally {
             button.disabled = false;
@@ -512,6 +561,7 @@ async function step(sectionId) {
 
     mount(
         el('div', { class: 'stack' },
+            resumeLinkCard(),
             progress(flow, position, section),
             form));
 }
@@ -538,7 +588,7 @@ async function review() {
     } catch (error) {
         return handleLoadFailure(error);
     }
-    if (view.status !== 'DRAFT') return alreadySubmitted();
+    if (view.status !== 'DRAFT') return alreadySubmitted(view);
     if (view.resumeStep !== 'REVIEW') {
         notify('There are still steps to complete.');
         return go(resumePath(view), true);
@@ -708,8 +758,16 @@ function handleLoadFailure(error) {
     return go('/', true);
 }
 
-function alreadySubmitted() {
+/**
+ * The token belongs to an application that is already submitted -- a second tab, or a reload
+ * after submitting. The token holder may read every field of it, so withholding the reference
+ * protected nothing and left them on a lookup screen with nothing to type.
+ */
+function alreadySubmitted(view) {
     store.clearToken();
+    if (view && view.reference) {
+        return go(`/submitted/${encodeURIComponent(view.reference)}`, true);
+    }
     notify('This application has already been submitted and cannot be changed. Find it by reference.');
     return go('/lookup', true);
 }

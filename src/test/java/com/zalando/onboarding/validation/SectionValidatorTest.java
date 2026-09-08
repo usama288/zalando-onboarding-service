@@ -22,10 +22,12 @@ class SectionValidatorTest {
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 8);
 
     private final FlowDefinitionRepository flows = new YamlFlowDefinitionRepository();
+    private static final Clock CLOCK =
+            Clock.fixed(TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
+
     private final SectionValidator validator = new SectionValidator(new ValidatorRegistry(List.of(
-            new AdultValidator(Clock.fixed(TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC)),
-            new IbanValidator(), new KvkValidator(), new NipValidator(),
-            new RegonValidator(), new VatIdDeValidator())));
+            new AdultValidator(CLOCK), new IbanValidator(), new KvkValidator(), new NipValidator(),
+            new RegonValidator(), new VatIdDeValidator())), CLOCK);
 
     @Test
     void aCompleteValidSectionYieldsNoViolations() {
@@ -238,6 +240,47 @@ class SectionValidatorTest {
         assertThat(accepted.violations()).isEmpty();
         assertThat(accepted.values()).containsOnlyKeys("informationConfirmed", "termsOfService",
                 "dataProcessing", "privacyNotice", "creditCheck");
+    }
+
+    /**
+     * The client says whether the box was ticked. It does not get to say which text was
+     * agreed to, or when.
+     *
+     * <p>A11's argument that a version identifier is enough rests entirely on the identifier
+     * naming the text -- so an identifier the applicant picked names nothing, and an
+     * acceptance dated 2099 is not a clock skew.
+     */
+    @Test
+    void theServerWritesTheConsentVersionAndTimestampWhateverTheClientSent() {
+        Map<String, Object> forged = consents();
+        forged.put("creditCheck", Map.of(
+                "version", "not-a-real-version", "acceptedAt", "2099-01-01T00:00:00Z"));
+
+        SectionValidation stored = result(Country.DE, OnboardingStep.CONSENT, forged);
+
+        assertThat(stored.violations()).isEmpty();
+        assertThat(asMap(stored.values().get("creditCheck")))
+                .containsEntry("version", "de-schufa-2026-01")
+                .containsEntry("acceptedAt", CLOCK.instant().toString());
+    }
+
+    /** A bare `true` is an acceptance too, and gets the same server-written record. */
+    @Test
+    void aConsentAcceptedAsABareTrueIsStoredAsAFullRecord() {
+        Map<String, Object> values = consents();
+        values.put("termsOfService", true);
+
+        SectionValidation stored = result(Country.DE, OnboardingStep.CONSENT, values);
+
+        assertThat(stored.violations()).isEmpty();
+        assertThat(asMap(stored.values().get("termsOfService")))
+                .containsEntry("version", "2026-01")
+                .containsEntry("acceptedAt", CLOCK.instant().toString());
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMap(Object value) {
+        return (Map<String, Object>) value;
     }
 
     /** Every consent of the DE flow, accepted as the A11 {version, acceptedAt} record. */

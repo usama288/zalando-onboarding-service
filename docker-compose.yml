@@ -22,6 +22,12 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # This stack is the local demo, and no email is ever sent, so the dev-profile outbox
+      # is the only way to see a resume link. Without it the headline feature of A18 cannot
+      # be demonstrated at all. Do NOT set this profile in a deployed environment: the
+      # outbox endpoint has no authentication in front of it and its payloads are bearer
+      # credentials.
+      SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/onboarding
       SPRING_DATASOURCE_USERNAME: onboarding
       SPRING_DATASOURCE_PASSWORD: onboarding
