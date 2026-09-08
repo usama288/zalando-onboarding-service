@@ -6,7 +6,7 @@ import java.net.URI;
  * Stable {@code type} URIs for the problem bodies. These are identifiers, not links to
  * fetch: a client branches on the type or on a violation code, never on the title text.
  */
-public final class ProblemTypes {
+final class ProblemTypes {
 
     private static final String BASE = "https://onboarding.zalando.com/problems/";
 

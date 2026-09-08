@@ -16,7 +16,7 @@ import java.util.Map;
  * {@code {version, acceptedAt}} acceptance record of A11, and a bare {@code true} for
  * clients that do not send the record.
  */
-public final class ConsentAcceptance {
+final class ConsentAcceptance {
 
     public static boolean isAccepted(Object value) {
         if (value == null) {

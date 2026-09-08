@@ -97,20 +97,12 @@ DRAFT ──submit──▶ SUBMITTED
 
 Enforced three times over, on purpose: the service refuses writes to a non-draft, the entity
 throws if asked to mutate, and a `CHECK` constraint makes a half-submitted row unrepresentable.
-The transition itself is one conditional statement —
+The transition itself is a single conditional `UPDATE` guarded on `status = 'DRAFT'`, so two
+simultaneous submits resolve to one winner and one reader, and the reference is minted inside
+the transition rather than before it. The statement and the reasoning are in **A10**.
 
-```sql
-UPDATE applications SET status='SUBMITTED', reference=?, submitted_at=?
- WHERE id=? AND status='DRAFT'
-```
-
-— so two simultaneous submits resolve to one winner and one reader. One row updated means this
-caller performed it; zero means somebody else did, and the caller re-reads and returns the
-existing reference. The reference is generated *inside* the transition, never before it, so a
-losing caller never mints one (**A10**).
-
-Email uniqueness is a partial index over submitted rows only. Unfiltered, it would let anyone
-lock a person out of onboarding by starting a draft with their address (**A7**).
+Email uniqueness is a partial index over submitted rows only — **A7** explains why the filter
+is load-bearing rather than stylistic.
 
 ---
 
@@ -197,22 +189,15 @@ that.
 
 The register lives in [ASSUMPTIONS.md](ASSUMPTIONS.md) §7. The ones that shaped the code most:
 
-- **T-1** — mocked decisioning, synchronous, behind an interface. A queue is the production
-  answer and costs infrastructure the timebox cannot afford. The interface is the seam.
-- **T-2** — only completed steps are persisted. No autosave, no partial-section state, no
-  draft-conflict handling. Cost: input on the step being typed is lost if the tab closes.
-- **T-3** — unguessable tokens as bearer credentials, because authentication is excluded. The
-  security property rests entirely on entropy. Tokens therefore appear in URLs, which is
-  inherent to the design, and is why they are kept out of logs and out of error bodies.
-- **T-4** — email uniqueness enforced at submit. Gives a clean rejection and accepts an
-  enumeration oracle, which A19 then avoids by never looking an email up on screen.
-- **T-5** — country immutable after creation. Cascade-invalidating downstream sections is not
-  affordable, and "start a new application" is an honest V1 answer.
-- **T-6** — country differences as configuration. A fourth country should be a configuration
-  change, not a code change.
+- **T-1** — mocked decisioning, synchronous, behind an interface that a queue replaces later.
+- **T-2** — only completed steps are persisted; no autosave, so no partial-section state.
+- **T-3** — unguessable tokens as bearer credentials, which is why they appear in URLs.
+- **T-4** — email uniqueness enforced at submit, never on drafts.
+- **T-5** — country immutable after creation, because it selects the flow.
+- **T-6** — country differences expressed as configuration, never as branches.
 - **T-7** — notification port built, integration stubbed to an outbox.
-- **T-9** — flow definitions unversioned. Speculative at this size; the limitation is stated.
-- **T-10** — one table, one JSONB column, discussed above.
+- **T-9** — flow definitions unversioned; the limitation is stated rather than solved.
+- **T-10** — one table, all section content in one JSONB column, discussed above.
 
 Two smaller decisions worth naming, since a reviewer will see them:
 

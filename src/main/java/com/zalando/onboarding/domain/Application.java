@@ -96,10 +96,10 @@ public class Application {
     private Instant updatedAt;
 
     /** Current shape of the {@code form_data} blob. */
-    public static final short CURRENT_SCHEMA_VERSION = 1;
+    private static final short CURRENT_SCHEMA_VERSION = 1;
 
     /** Key stamped into every stored section, so drop-off per step is answerable (A2). */
-    public static final String COMPLETED_AT = "completedAt";
+    private static final String COMPLETED_AT = "completedAt";
 
     protected Application() {
         // for JPA
@@ -175,11 +175,6 @@ public class Application {
         }
     }
 
-    /** True once this section has been completed and stored at least once. */
-    public boolean hasSection(String sectionId) {
-        return formData.containsKey(sectionId);
-    }
-
     /**
      * Attaches the mocked decision produced after submission.
      *
@@ -242,20 +237,12 @@ public class Application {
         return Optional.ofNullable(lastCompletedStep);
     }
 
-    public short getSchemaVersion() {
-        return schemaVersion;
-    }
-
     public Map<String, Object> getFormData() {
         return Collections.unmodifiableMap(formData);
     }
 
     public Optional<Map<String, Object>> getDecision() {
         return Optional.ofNullable(decision).map(Collections::unmodifiableMap);
-    }
-
-    public long getRowVersion() {
-        return rowVersion;
     }
 
     public Optional<Instant> getSubmittedAt() {
