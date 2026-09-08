@@ -489,12 +489,34 @@ class OnboardingApiTest {
 
         String body = mvc.perform(saveSection(token, "personalDetails", Map.of("firstName", "")))
                 .andExpect(status().isBadRequest())
-                // Percent-encoded because a URI template is not a valid URI.
-                .andExpect(jsonPath("$.instance")
-                        .value("/api/applications/%7BdraftToken%7D/sections/%7BsectionId%7D"))
+                // instance identifies the occurrence, and is the request id as a URN --
+                // the same value the X-Request-Id header carries.
+                .andExpect(jsonPath("$.instance").value(org.hamcrest.Matchers.startsWith("urn:uuid:")))
                 .andReturn().getResponse().getContentAsString();
 
         assertThat(body).as("no problem body may contain the token").doesNotContain(token);
+    }
+
+    @Test
+    void theProblemInstanceIsTheRequestIdSoBodyHeaderAndLogsAgree() throws Exception {
+        MvcResult result = mvc.perform(get("/api/applications/{token}", "missing"))
+                .andExpect(status().isNotFound())
+                .andReturn();
+
+        String header = result.getResponse().getHeader("X-Request-Id");
+        Map<?, ?> body = json.readValue(result.getResponse().getContentAsString(), Map.class);
+
+        assertThat(body.get("requestId")).isEqualTo(header);
+        assertThat(body.get("instance")).isEqualTo("urn:uuid:" + header);
+    }
+
+    /** The filter accepts ids urn:uuid does not. A malformed URN is worse than none. */
+    @Test
+    void aNonUuidRequestIdFallsBackRatherThanEmittingAMalformedUrn() throws Exception {
+        mvc.perform(get("/api/applications/{token}", "missing").header("X-Request-Id", "trace-42"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.requestId").value("trace-42"))
+                .andExpect(jsonPath("$.instance").value("about:blank"));
     }
 
     @Test

@@ -16,7 +16,9 @@ clarity matter more than surface area.
 
 ## Domain rules
 - Country is chosen when the application is created and is IMMUTABLE. It selects the
-  flow definition. Email is captured at the same time and IS editable.
+  flow definition. Email is captured at the same time. Country is immutable; email is not
+  immutable at the domain level, but V1 exposes no endpoint or UI to change it, so
+  recovering from a typo means starting a new draft.
 - Steps are ordered. A step cannot be reached until the previous one is complete
   (forward gating), but completed steps can be re-edited while the application is a
   draft (backward editing).

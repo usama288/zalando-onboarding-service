@@ -7,8 +7,8 @@ import com.zalando.onboarding.domain.ValidationFailedException;
 import com.zalando.onboarding.validation.Violation;
 import com.zalando.onboarding.validation.ViolationCode;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -20,10 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.WebRequest;
-import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
@@ -44,7 +41,7 @@ public class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ProblemDetailsAdvice.class);
 
-    /** No per-occurrence URI worth reporting. The requestId identifies the call instead. */
+    /** RFC 7807's own "nothing to say" sentinel, for when no usable id exists. */
     private static final URI BLANK = URI.create("about:blank");
 
     @ExceptionHandler(ValidationFailedException.class)
@@ -121,7 +118,7 @@ public class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
         ProblemDetail detail = ProblemDetail.forStatus(status);
         detail.setType(type);
         detail.setTitle(title);
-        detail.setInstance(route());
+        detail.setInstance(instance());
         // Every response carries the requestId, so support can find this exact call.
         detail.setProperty("requestId", RequestIdFilter.current());
         detail.setProperty("violations", violations);
@@ -129,32 +126,27 @@ public class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * The route that was called, as its template rather than as the URI that called it.
+     * A URI identifying this occurrence of the problem, which is what {@code instance} means.
+     * The request id already identifies the occurrence, so this is that id as a URN.
      *
-     * <p>This must be set, not left null. Spring fills an absent {@code instance} from the
-     * raw request URI, and the draft token is a path segment -- so every error body would
-     * carry a live bearer credential into the one artefact people paste into support tickets
-     * and client-side error reporters ship to third parties (A13). {@code requestId} already
-     * identifies the occurrence, and identifies it without the secret.
+     * <p>It must be set, not left null. Spring fills an absent {@code instance} from the raw
+     * request URI, and the draft token is a path segment -- so every error body would carry a
+     * live bearer credential into the one artefact people paste into support tickets and
+     * client-side error reporters ship to third parties (A13).
      *
-     * <p>Falls back to {@code about:blank} when no handler matched, because there is no
-     * template to report and the raw URI is exactly what must not be echoed.
+     * <p>The value matches the {@code X-Request-Id} response header and the MDC value on every
+     * log line for this request, so one string ties the body, the header and the logs together.
+     * A route template was the earlier choice and was wrong twice over: it names the endpoint
+     * rather than the occurrence, and percent-encoding its braces made it read like a defect.
      *
-     * <p>The braces are percent-encoded because a URI template is not a valid URI -- that is
-     * what makes it a template -- and {@code instance} is typed as one. The multi-argument
-     * {@link URI} constructor does that encoding; {@code URI.create} would throw.
+     * <p>Falls back to {@code about:blank} when there is no usable id -- outside a request, or
+     * when the caller supplied an {@code X-Request-Id} that is not a UUID. The filter accepts a
+     * wider charset than {@code urn:uuid} permits, and a malformed URN is worse than none.
      */
-    private URI route() {
-        RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
-        Object pattern = attributes == null ? null
-                : attributes.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE,
-                        RequestAttributes.SCOPE_REQUEST);
-        if (pattern == null) {
-            return BLANK;
-        }
+    private URI instance() {
         try {
-            return new URI(null, null, String.valueOf(pattern), null);
-        } catch (URISyntaxException e) {
+            return URI.create("urn:uuid:" + UUID.fromString(RequestIdFilter.current()));
+        } catch (IllegalArgumentException notAUuid) {
             return BLANK;
         }
     }
