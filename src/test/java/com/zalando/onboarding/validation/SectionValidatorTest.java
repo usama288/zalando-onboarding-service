@@ -157,6 +157,48 @@ class SectionValidatorTest {
                 .allSatisfy(violation -> assertThat(violation.section()).isEqualTo("businessRegistry"));
     }
 
+    /**
+     * The same payload accepted by one country and refused by another — the property the whole
+     * configuration approach exists to provide, asserted rather than assumed.
+     *
+     * <p>Postcodes are the "same field, different rule" case, covered above. Tax is the harder
+     * one: the countries do not merely validate a field differently, they declare different
+     * fields, so a Polish payload is not a badly filled German form — it is a form with a field
+     * Germany has never heard of and missing one it requires.
+     */
+    @Test
+    void aTaxPayloadValidInOneCountryIsRefusedInAnother() {
+        Map<String, Object> polish = new LinkedHashMap<>();
+        polish.put("nip", "8567346215");
+        polish.put("vatRegistered", false);
+
+        assertThat(validate(Country.PL, OnboardingStep.TAX_INFORMATION, polish))
+                .as("valid in Poland")
+                .isEmpty();
+
+        assertThat(validate(Country.DE, OnboardingStep.TAX_INFORMATION, polish))
+                .as("the same payload in Germany")
+                .extracting(Violation::field, Violation::code)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("taxNumber", ViolationCode.REQUIRED),
+                        org.assertj.core.groups.Tuple.tuple("nip", ViolationCode.FIELD_UNKNOWN));
+    }
+
+    @Test
+    void aGermanTaxPayloadIsRefusedInPoland() {
+        Map<String, Object> german = new LinkedHashMap<>();
+        german.put("taxNumber", "12345678901");
+        german.put("vatRegistered", false);
+
+        assertThat(validate(Country.DE, OnboardingStep.TAX_INFORMATION, german)).isEmpty();
+
+        assertThat(validate(Country.PL, OnboardingStep.TAX_INFORMATION, german))
+                .extracting(Violation::field, Violation::code)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("nip", ViolationCode.REQUIRED),
+                        org.assertj.core.groups.Tuple.tuple("taxNumber", ViolationCode.FIELD_UNKNOWN));
+    }
+
     // ---------------------------------------------------------------------------- consents
 
     /**

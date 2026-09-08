@@ -180,6 +180,21 @@ public class Application {
         return formData.containsKey(sectionId);
     }
 
+    /**
+     * Attaches the mocked decision produced after submission.
+     *
+     * <p>Requires SUBMITTED, not DRAFT — this is a consequence of submitting and cannot exist
+     * before it. It deliberately does not touch {@code status}: there are exactly two statuses
+     * and the decision is not one of them (A1, FR6). The applicant never sees this.
+     */
+    public void recordDecision(Map<String, Object> decision) {
+        if (status != ApplicationStatus.SUBMITTED) {
+            throw new IllegalStateException(
+                    "Cannot record a decision for application " + id + ": it is " + status);
+        }
+        this.decision = new LinkedHashMap<>(Objects.requireNonNull(decision, "decision"));
+    }
+
     /** Email shapes nothing, so a mistyped address stays correctable while the draft lives. */
     public void changeApplicantEmail(String applicantEmail) {
         requireDraft("change the email of");

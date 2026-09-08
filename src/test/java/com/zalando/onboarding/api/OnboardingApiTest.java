@@ -416,7 +416,45 @@ class OnboardingApiTest {
         }
 
         assertThat(references).as("both callers see the same, single reference").hasSize(1);
-        assertThat(reload(token).getReference()).contains(references.iterator().next());
+
+        String reference = references.iterator().next();
+        assertThat(reload(token).getReference()).contains(reference);
+
+        // One reference, and one row carrying it. A second row would mean the race produced a
+        // whole second application rather than a second reference on the same one.
+        assertThat(applications.findAll())
+                .filteredOn(app -> app.getReference().filter(reference::equals).isPresent())
+                .as("exactly one row holds the reference")
+                .hasSize(1);
+        assertThat(reload(token).getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+    }
+
+    /**
+     * The mocked decision runs at submit and is stored — and is visible to nobody. It must not
+     * appear in either read model, and it must not have moved the status: there are two
+     * statuses and the decision is not one of them (A1, FR6).
+     */
+    @Test
+    void submissionRecordsADecisionThatIsNeverReturnedAndNeverChangesStatus() throws Exception {
+        String token = completedDraft("DE");
+        String reference = field(mvc.perform(post("/api/applications/{token}/submit", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUBMITTED"))
+                .andReturn(), "reference");
+
+        Application stored = reload(token);
+        assertThat(stored.getStatus()).isEqualTo(ApplicationStatus.SUBMITTED);
+        assertThat(stored.getDecision())
+                .as("a decision was recorded")
+                .isPresent()
+                .get(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                .containsKeys("identityConfidence", "debtFlags", "finalDecision", "decidedAt")
+                .containsEntry("finalDecision", "APPROVE");
+
+        mvc.perform(get("/api/applications/{token}", token))
+                .andExpect(jsonPath("$.decision").doesNotExist());
+        mvc.perform(get("/api/applications/reference/{reference}", reference))
+                .andExpect(jsonPath("$.decision").doesNotExist());
     }
 
     // --------------------------------------------------------------------------- flow and ids

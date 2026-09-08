@@ -1,5 +1,9 @@
 package com.zalando.onboarding.domain;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zalando.onboarding.decision.Decision;
+import com.zalando.onboarding.decision.DecisionEngine;
 import com.zalando.onboarding.flow.FlowDefinition;
 import com.zalando.onboarding.flow.FlowDefinitionRepository;
 import com.zalando.onboarding.flow.SectionDefinition;
@@ -58,12 +62,15 @@ public class ApplicationService {
     private final SubmissionValidator submissionValidator;
     private final SecureTokenGenerator tokens;
     private final NotificationPort notifications;
+    private final DecisionEngine decisionEngine;
+    private final ObjectMapper json;
     private final OnboardingProperties properties;
     private final Clock clock;
 
     public ApplicationService(ApplicationRepository applications, FlowDefinitionRepository flows,
                               SectionValidator sectionValidator, SubmissionValidator submissionValidator,
                               SecureTokenGenerator tokens, NotificationPort notifications,
+                              DecisionEngine decisionEngine, ObjectMapper json,
                               OnboardingProperties properties, Clock clock) {
         this.applications = applications;
         this.flows = flows;
@@ -71,6 +78,8 @@ public class ApplicationService {
         this.submissionValidator = submissionValidator;
         this.tokens = tokens;
         this.notifications = notifications;
+        this.decisionEngine = decisionEngine;
+        this.json = json;
         this.properties = properties;
         this.clock = clock;
     }
@@ -234,11 +243,37 @@ public class ApplicationService {
         if (rows == 1) {
             log.info("Submitted application {} as reference {}",
                     submitted.getId(), submitted.getReference().orElse(null));
+            // Only the caller that performed the transition decides. The loser of a race
+            // would recompute the identical result -- the engine is deterministic -- and
+            // write it a second time for nothing.
+            decide(submitted);
         } else {
             log.info("Lost the submit race for application {}; returning existing reference {}",
                     submitted.getId(), submitted.getReference().orElse(null));
         }
         return submitted;
+    }
+
+    /**
+     * Runs the mocked checks and stores the result.
+     *
+     * <p>Synchronous, and only because a queue is not affordable in this timebox. In
+     * production this is an event consumed by a worker, which is why it goes through
+     * {@link DecisionEngine} rather than being written inline: moving it onto a queue later
+     * changes this method and nothing else.
+     *
+     * <p>The result is persisted and never returned. Status stays SUBMITTED (A1, FR6): the
+     * decision gates nothing, is shown to nobody, and exists so a review workflow that does
+     * not exist yet would have something to read.
+     */
+    private void decide(Application submitted) {
+        Decision decision = decisionEngine.decide(submitted);
+        submitted.recordDecision(json.convertValue(decision, new TypeReference<Map<String, Object>>() {}));
+        applications.save(submitted);
+
+        log.info("Recorded decision {} for application {} (identityConfidence={}, flags={})",
+                decision.finalDecision(), submitted.getId(),
+                decision.identityConfidence(), decision.debtFlags().size());
     }
 
     private int transition(Application application) {

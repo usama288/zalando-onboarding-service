@@ -17,6 +17,7 @@ assignment, not an omission.
 - Review every section, correct any of them, then submit
 - Receive an unguessable application reference
 - Retrieve a submitted application read-only by that reference
+- Mocked, deterministic post-submission checks, recorded and never shown to the applicant
 
 **Country handling.** Each country's form is declared in YAML (`src/main/resources/flows/`)
 and enforced by named Java validator beans. The three countries differ in field *rules*
@@ -150,19 +151,19 @@ translate directly, with `set SPRING_PROFILES_ACTIVE=dev` replacing the inline v
 ./gradlew test
 ```
 
-**161 tests, 0 failures**, about 12 seconds from clean on a warm Gradle daemon.
+**178 tests, 0 failures**, about 12 seconds from clean on a warm Gradle daemon.
 
 Add `clean` (`./gradlew clean test`) to force a full re-run — Gradle reports `UP-TO-DATE` and
 skips the suite when nothing has changed.
 
-**Docker is required.** 35 of the 161 tests boot a Spring context against a real PostgreSQL 16
-container via Testcontainers (`TestcontainersConfiguration`). The other 126 are plain JUnit
+**Docker is required.** 36 of the 178 tests boot a Spring context against a real PostgreSQL 16
+container via Testcontainers (`TestcontainersConfiguration`). The other 142 are plain JUnit
 with no Docker, no Spring and no database.
 
 | Category | Tests | Needs Docker | Covers |
 |---|---:|---|---|
-| Validators and flow config | 126 | no | checksum algorithms, per-country patterns, YAML loading, resume derivation, both validation layers |
-| API and persistence | 35 | yes | HTTP behaviour end to end, gating, submission, timestamps, token entropy, the dev outbox |
+| Validators, flow config and decisioning | 142 | no | checksum algorithms, per-country patterns, YAML loading, resume derivation, both validation layers, every decision branch |
+| API and persistence | 36 | yes | HTTP behaviour end to end, gating, submission, the recorded decision, timestamps, token entropy, the dev outbox |
 
 There is **no H2 and no in-memory database**. The integration tests run against the same
 PostgreSQL major version as production, so `ddl-auto: validate` and the JSONB mapping are
@@ -299,7 +300,7 @@ Browser  ──fetch──▶  Spring MVC controllers  ──▶  ApplicationSer
 | `validation` | Layer 1 (field) and layer 2 (submission) validators, resolved by name |
 | `notification` | `NotificationPort` and an outbox adapter that records resume links |
 | `support` | Clock, token generation, configuration properties |
-| `decision` | **Empty.** Mocked decisioning is described in ASSUMPTIONS A1 and is *not implemented* |
+| `decision` | `DecisionEngine` and a deterministic mock, run synchronously at submit (A1) |
 
 **Frontend** (`src/main/resources/static/`) is three files — `index.html`, `app.js`,
 `styles.css` — totalling about 1,100 lines. `app.js` is a single ES module with hash-based
@@ -330,7 +331,7 @@ country-dependent form content lives in one JSONB column.
 | `last_completed_step` | `VARCHAR(30)` | The furthest section actually completed; `NULL` on a fresh draft. Deliberately excludes `REVIEW` |
 | `schema_version` | `SMALLINT` | How to read `form_data` after its shape changes. Not flow versioning |
 | `form_data` | `JSONB` | One key per completed section, each carrying its own `completedAt` |
-| `decision` | `JSONB` | Column exists; **nothing writes it** |
+| `decision` | `JSONB` | The mocked decision recorded at submit. Never returned by any endpoint |
 | `row_version` | `BIGINT` | JPA `@Version` — optimistic locking, since two tabs write the same row |
 | `submitted_at` | `TIMESTAMPTZ` | Set with the reference, in the same statement |
 | `created_at` / `updated_at` | `TIMESTAMPTZ` | `updated_at` owned solely by Hibernate `@UpdateTimestamp` |
@@ -611,6 +612,13 @@ a client that ignores the intended order:
 - `ApplicationTimestampsTest` pins `updated_at` ownership; `SecureTokenGeneratorTest` pins
   token entropy and uniqueness
 
+**Mocked decisioning (12 tests, no Docker).** `MockDecisionEngineTest` covers every branch —
+APPROVE, REFER, DECLINE — plus the properties the branches rest on: a hard flag outranks full
+confidence; a cross-border IBAN alone lowers confidence without referring, because A12 says it
+is legitimate; the debt register is matched against whichever tax field the country declares,
+with separators stripped; and the same application decided twenty times gives an identical
+result, because a mock built on `Random` would make every other assertion here meaningless.
+
 **Not covered.** No test asserts B2 in [Bugs.md](Bugs.md), which is still open. No frontend automated tests — `app.js` was verified by walking a full German
 application in a browser, which is honest but not repeatable in CI. No load or security
 testing. No test asserts the consent holes in [Bugs.md](Bugs.md), because they are open.
@@ -750,8 +758,6 @@ runtime.
 
 **Deliberate timebox decisions** — could have been built, were not:
 
-- **Mocked decisioning is not implemented.** ASSUMPTIONS A1 describes it and the `decision`
-  column exists; the `decision` package is empty and nothing writes that column
 - **Email is documented as editable and has no endpoint or UI** (B5 in [Bugs.md](Bugs.md))
 - Draft recovery is same-browser only, because no email is sent
 - No autosave — only completed, validated steps are persisted, so input on the step being typed
@@ -787,8 +793,9 @@ Roughly in the order the MVP's own questions would justify:
    ([Bugs.md](Bugs.md) B2)
 5. **Real registry, identity and banking adapters**, one country at a time, behind the seams
    that already exist
-6. **Asynchronous decisioning** and a back-office review queue, with status history and audit
-   events
+6. **Move decisioning onto a queue** — it runs synchronously behind `DecisionEngine` only
+   because a queue is not affordable in this timebox — and add a back-office review queue,
+   status history and audit events
 7. **Metrics and tracing**, plus Actuator health endpoints for orchestration
 8. **Encrypted storage** for the most sensitive fields, and a retention job
 9. **Accessibility audit and localisation**

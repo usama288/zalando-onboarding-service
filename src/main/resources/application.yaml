@@ -52,6 +52,16 @@ onboarding:
   # spoofed Host header must not be able to aim it somewhere else.
   resume-base-url: ${ONBOARDING_RESUME_BASE_URL:http://localhost:8080/#/resume}
 
+  decision:
+    # Demo fixture data standing in for a credit bureau. There is no real debt register and
+    # no bureau integration -- see the scope boundaries in CLAUDE.md. Quoted so YAML keeps
+    # them as strings rather than parsing them into numbers and dropping leading zeros.
+    debt-register-tax-ids:
+      - "99999999999"
+      - "7777777777"
+    # At or above this identity confidence an application is approved; below it, referred.
+    refer-below-confidence: 70
+
 logging:
   level:
     com.zalando.onboarding: DEBUG
