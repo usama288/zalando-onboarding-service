@@ -23,6 +23,16 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          # index.html, app.js and styles.css ship under fixed names, so there is no hash in
+          # the filename to invalidate them. no-cache means "keep it, but always revalidate":
+          # one conditional request per load, and nobody is ever stuck on a stale app.js
+          # after a deploy. Without it the browser caches heuristically and does not notice.
+          no-cache: true
+
   jackson:
     default-property-inclusion: non_null
     deserialization:
@@ -40,7 +50,7 @@ onboarding:
   # Where a resume link points. Configured, not derived from the inbound request: the link
   # is a bearer credential issued for a browser that is not the one making the call, so a
   # spoofed Host header must not be able to aim it somewhere else.
-  resume-base-url: ${ONBOARDING_RESUME_BASE_URL:http://localhost:8080/resume}
+  resume-base-url: ${ONBOARDING_RESUME_BASE_URL:http://localhost:8080/#/resume}
 
 logging:
   level:

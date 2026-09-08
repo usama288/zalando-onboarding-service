@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Partner onboarding</title>
+  <meta name="description" content="Self-service onboarding for solo entrepreneurs.">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="masthead">
+    <a class="wordmark" href="#/">Partner&nbsp;onboarding</a>
+    <nav class="masthead-nav">
+      <a href="#/lookup">Find a submitted application</a>
+    </nav>
+  </header>
+
+  <!--
+    One mount point. Screens replace its contents; #status is separate and announced,
+    so an error is read out without every route change being read out with it.
+  -->
+  <main id="main" class="shell">
+    <div id="status" role="status" aria-live="polite"></div>
+    <div id="app"></div>
+  </main>
+
+  <footer class="footer">
+    <p>No account is created. A link to return to your application is issued when you start.</p>
+  </footer>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

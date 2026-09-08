@@ -91,7 +91,7 @@ class OnboardingApiTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.applicationId").value(notNullValue()))
                 .andExpect(jsonPath("$.draftToken").value(notNullValue()))
-                .andExpect(jsonPath("$.resumeUrl").value(startsWith("http://localhost:8080/resume/")))
+                .andExpect(jsonPath("$.resumeUrl").value(startsWith("http://localhost:8080/#/resume/")))
                 .andExpect(jsonPath("$.flow.country").value("DE"))
                 .andExpect(jsonPath("$.flow.sections", hasSize(6)));
     }

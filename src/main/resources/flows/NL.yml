@@ -8,40 +8,84 @@ sections:
     title: Personal details
     fields:
       - name: firstName
+        label: "First name"
         type: TEXT
         required: true
         maxLength: 100
       - name: lastName
+        label: "Last name"
         type: TEXT
         required: true
         maxLength: 100
       - name: dateOfBirth
+        label: "Date of birth"
         type: DATE
         required: true
         validators: [adult]
       - name: nationality
+        label: "Nationality"
         type: TEXT
         required: true
         maxLength: 2
         pattern: "^[A-Z]{2}$"
+        # EU, EEA, Switzerland and the UK. Illustrative and deliberately configuration:
+        # in production this list comes from reference data, and either way widening it is
+        # a YAML change, never a frontend one.
+        options:
+          - { value: AT, label: Austria }
+          - { value: BE, label: Belgium }
+          - { value: BG, label: Bulgaria }
+          - { value: CH, label: Switzerland }
+          - { value: CY, label: Cyprus }
+          - { value: CZ, label: Czechia }
+          - { value: DE, label: Germany }
+          - { value: DK, label: Denmark }
+          - { value: EE, label: Estonia }
+          - { value: ES, label: Spain }
+          - { value: FI, label: Finland }
+          - { value: FR, label: France }
+          - { value: GB, label: United Kingdom }
+          - { value: GR, label: Greece }
+          - { value: HR, label: Croatia }
+          - { value: HU, label: Hungary }
+          - { value: IE, label: Ireland }
+          - { value: IS, label: Iceland }
+          - { value: IT, label: Italy }
+          - { value: LI, label: Liechtenstein }
+          - { value: LT, label: Lithuania }
+          - { value: LU, label: Luxembourg }
+          - { value: LV, label: Latvia }
+          - { value: MT, label: Malta }
+          - { value: NL, label: Netherlands }
+          - { value: NO, label: Norway }
+          - { value: PL, label: Poland }
+          - { value: PT, label: Portugal }
+          - { value: RO, label: Romania }
+          - { value: SE, label: Sweden }
+          - { value: SI, label: Slovenia }
+          - { value: SK, label: Slovakia }
 
   - id: address
     step: ADDRESS
     title: Business address
     fields:
       - name: street
+        label: "Street"
         type: TEXT
         required: true
         maxLength: 200
       - name: houseNumber
+        label: "House number"
         type: TEXT
         required: true
         maxLength: 20
       - name: postalCode
+        label: "Postal code (postcode)"
         type: TEXT
         required: true
         pattern: "^\\d{4} ?[A-Za-z]{2}$"
       - name: city
+        label: "City"
         type: TEXT
         required: true
         maxLength: 100
@@ -53,9 +97,11 @@ sections:
     # which lives in the registry section, so tax is only the VAT question.
     fields:
       - name: vatRegistered
+        label: "Registered for VAT (btw)"
         type: BOOLEAN
         required: true
       - name: btwId
+        label: "BTW identification number (btw-id)"
         type: TEXT
         required: true
         maxLength: 20
@@ -68,15 +114,18 @@ sections:
     title: Business registry
     fields:
       - name: kvkNumber
+        label: "KvK number"
         type: TEXT
         required: true
         maxLength: 8
         validators: [kvk]
       - name: tradeName
+        label: "Trade name"
         type: TEXT
         required: true
         maxLength: 200
       - name: sbiCode
+        label: "SBI code"
         type: TEXT
         required: true
         maxLength: 6
@@ -86,10 +135,12 @@ sections:
     title: Payout details
     fields:
       - name: accountHolder
+        label: "Account holder"
         type: TEXT
         required: true
         maxLength: 200
       - name: iban
+        label: "IBAN"
         type: TEXT
         required: true
         maxLength: 34
@@ -106,23 +157,28 @@ sections:
     # fiction into shipped configuration.
     fields:
       - name: informationConfirmed
+        label: "I confirm that the information I have given is accurate and complete"
         type: CONSENT
         required: true
         version: "2026-01"
       - name: termsOfService
+        label: "I accept the Terms of Service"
         type: CONSENT
         required: true
         version: "2026-01"
       - name: dataProcessing
+        label: "I consent to my personal data being processed for this application"
         type: CONSENT
         required: true
         version: "2026-01"
       - name: privacyNotice
+        label: "I have read the Privacy Notice"
         type: CONSENT
         required: true
         version: "2026-01"
       # BKR in the Netherlands.
       - name: creditCheck
+        label: "I consent to a credit check with BKR"
         type: CONSENT
         required: true
         version: "nl-bkr-2026-01"

@@ -7,6 +7,8 @@ import com.zalando.onboarding.flow.FlowDefinition;
 import com.zalando.onboarding.flow.FlowDefinitionRepository;
 import com.zalando.onboarding.validation.Violation;
 import com.zalando.onboarding.validation.ViolationCode;
+import java.util.Arrays;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,6 +30,18 @@ public class FlowController {
 
     public FlowController(FlowDefinitionRepository flows) {
         this.flows = flows;
+    }
+
+    /**
+     * Every market this service onboards in, with its whole form.
+     *
+     * <p>The landing page builds its country picker from this rather than from a list of its
+     * own, which is what makes "a fourth country needs no frontend change" true of the very
+     * first screen and not only of the fields inside it.
+     */
+    @GetMapping
+    public List<FlowDefinition> all() {
+        return Arrays.stream(Country.values()).map(flows::findByCountry).toList();
     }
 
     @GetMapping("/{country}")

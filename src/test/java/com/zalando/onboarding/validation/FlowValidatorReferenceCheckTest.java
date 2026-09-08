@@ -77,8 +77,8 @@ class FlowValidatorReferenceCheckTest {
     private FlowValidatorReferenceCheck check(String referencedName, FieldValidator... registered) {
         FlowDefinitionRepository flows = country -> new FlowDefinition(country, 1, List.of(
                 new SectionDefinition("personalDetails", OnboardingStep.PERSONAL_DETAILS, "Personal",
-                        List.of(new FieldDefinition("dateOfBirth", FieldType.DATE, true, null, null,
-                                List.of(referencedName), null, null)))));
+                        List.of(new FieldDefinition("dateOfBirth", "Date of birth", FieldType.DATE, true, null, null,
+                                List.of(referencedName), null, null, List.of())))));
         return new FlowValidatorReferenceCheck(flows, new ValidatorRegistry(List.of(registered)));
     }
 }

@@ -55,17 +55,17 @@ class FlowVariationCapabilityTest {
     @Test
     void theSameConsentCanCarryADifferentVersionPerCountry() {
         FlowDefinition de = flowWithConsents(Country.DE,
-                new FieldDefinition("creditCheck", FieldType.CONSENT, true, null, null,
-                        List.of(), null, "de-schufa-2026-01"));
+                new FieldDefinition("creditCheck", "Credit check", FieldType.CONSENT, true, null, null,
+                        List.of(), null, "de-schufa-2026-01", List.of()));
         FlowDefinition nl = flowWithConsents(Country.NL,
-                new FieldDefinition("creditCheck", FieldType.CONSENT, true, null, null,
-                        List.of(), null, "nl-bkr-2026-01"));
+                new FieldDefinition("creditCheck", "Credit check", FieldType.CONSENT, true, null, null,
+                        List.of(), null, "nl-bkr-2026-01", List.of()));
 
         assertThat(version(de, "creditCheck")).isNotEqualTo(version(nl, "creditCheck"));
     }
 
     private static FieldDefinition consent(String name, boolean required) {
-        return new FieldDefinition(name, FieldType.CONSENT, required, null, null, List.of(), null, V);
+        return new FieldDefinition(name, name, FieldType.CONSENT, required, null, null, List.of(), null, V, List.of());
     }
 
     private static FlowDefinition flowWithConsents(Country country, FieldDefinition... consents) {

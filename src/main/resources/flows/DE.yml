@@ -15,22 +15,62 @@ sections:
     title: Personal details
     fields:
       - name: firstName
+        label: "First name"
         type: TEXT
         required: true
         maxLength: 100
       - name: lastName
+        label: "Last name"
         type: TEXT
         required: true
         maxLength: 100
       - name: dateOfBirth
+        label: "Date of birth"
         type: DATE
         required: true
         validators: [adult]
       - name: nationality
+        label: "Nationality"
         type: TEXT
         required: true
         maxLength: 2
         pattern: "^[A-Z]{2}$"
+        # EU, EEA, Switzerland and the UK. Illustrative and deliberately configuration:
+        # in production this list comes from reference data, and either way widening it is
+        # a YAML change, never a frontend one.
+        options:
+          - { value: AT, label: Austria }
+          - { value: BE, label: Belgium }
+          - { value: BG, label: Bulgaria }
+          - { value: CH, label: Switzerland }
+          - { value: CY, label: Cyprus }
+          - { value: CZ, label: Czechia }
+          - { value: DE, label: Germany }
+          - { value: DK, label: Denmark }
+          - { value: EE, label: Estonia }
+          - { value: ES, label: Spain }
+          - { value: FI, label: Finland }
+          - { value: FR, label: France }
+          - { value: GB, label: United Kingdom }
+          - { value: GR, label: Greece }
+          - { value: HR, label: Croatia }
+          - { value: HU, label: Hungary }
+          - { value: IE, label: Ireland }
+          - { value: IS, label: Iceland }
+          - { value: IT, label: Italy }
+          - { value: LI, label: Liechtenstein }
+          - { value: LT, label: Lithuania }
+          - { value: LU, label: Luxembourg }
+          - { value: LV, label: Latvia }
+          - { value: MT, label: Malta }
+          - { value: NL, label: Netherlands }
+          - { value: NO, label: Norway }
+          - { value: PL, label: Poland }
+          - { value: PT, label: Portugal }
+          - { value: RO, label: Romania }
+          - { value: SE, label: Sweden }
+          - { value: SI, label: Slovenia }
+          - { value: SK, label: Slovakia }
 
   - id: address
     step: ADDRESS
@@ -38,18 +78,22 @@ sections:
     # No country field: it is fixed to the application country and rendered read-only.
     fields:
       - name: street
+        label: "Street"
         type: TEXT
         required: true
         maxLength: 200
       - name: houseNumber
+        label: "House number"
         type: TEXT
         required: true
         maxLength: 20
       - name: postalCode
+        label: "Postal code (Postleitzahl)"
         type: TEXT
         required: true
         pattern: "^\\d{5}$"
       - name: city
+        label: "City"
         type: TEXT
         required: true
         maxLength: 100
@@ -59,13 +103,16 @@ sections:
     title: Tax information
     fields:
       - name: taxNumber
+        label: "Tax number (Steuernummer)"
         type: TEXT
         required: true
         maxLength: 20
       - name: vatRegistered
+        label: "Registered for VAT"
         type: BOOLEAN
         required: true
       - name: vatId
+        label: "VAT identification number (USt-IdNr.)"
         type: TEXT
         required: true
         maxLength: 20
@@ -81,17 +128,23 @@ sections:
     # which is why this section is gated on a boolean rather than demanding a number.
     fields:
       - name: registered
+        label: "Entered in the Handelsregister"
         type: BOOLEAN
         required: true
       # HRA vs HRB is not optional once someone declares they are registered.
       - name: registryType
+        label: "Register type"
         type: TEXT
         required: true
         maxLength: 20
         requiredWhen:
           field: registered
           equals: "true"
+        options:
+          - { value: HRA, label: "HRA - sole trader or partnership" }
+          - { value: HRB, label: "HRB - incorporated company" }
       - name: registrationNumber
+        label: "Registration number"
         type: TEXT
         required: true
         maxLength: 30
@@ -99,6 +152,7 @@ sections:
           field: registered
           equals: "true"
       - name: registerCourt
+        label: "Register court (Registergericht)"
         type: TEXT
         required: true
         maxLength: 100
@@ -106,6 +160,7 @@ sections:
           field: registered
           equals: "true"
       - name: registeredBusinessName
+        label: "Registered business name"
         type: TEXT
         required: false
         maxLength: 200
@@ -115,10 +170,12 @@ sections:
     title: Payout details
     fields:
       - name: accountHolder
+        label: "Account holder"
         type: TEXT
         required: true
         maxLength: 200
       - name: iban
+        label: "IBAN"
         type: TEXT
         required: true
         maxLength: 34
@@ -135,23 +192,28 @@ sections:
     # fiction into shipped configuration.
     fields:
       - name: informationConfirmed
+        label: "I confirm that the information I have given is accurate and complete"
         type: CONSENT
         required: true
         version: "2026-01"
       - name: termsOfService
+        label: "I accept the Terms of Service"
         type: CONSENT
         required: true
         version: "2026-01"
       - name: dataProcessing
+        label: "I consent to my personal data being processed for this application"
         type: CONSENT
         required: true
         version: "2026-01"
       - name: privacyNotice
+        label: "I have read the Privacy Notice"
         type: CONSENT
         required: true
         version: "2026-01"
       # SCHUFA in Germany.
       - name: creditCheck
+        label: "I consent to a credit check with SCHUFA"
         type: CONSENT
         required: true
         version: "de-schufa-2026-01"
