@@ -19,6 +19,17 @@ the code comments cite. [Bugs.md](Bugs.md) — what is known and still open.
 
 ---
 
+## How this was built
+
+This is an agentic engineering exercise, so the prompts are part of the submission.
+[PROMPTS.md](PROMPTS.md) is the full prompt log, in order, with the acceptance criteria each
+phase was verified against and notes on what the prompting approach got wrong mid-build.
+[CLAUDE.md](CLAUDE.md) is the design contract those prompts inherit. Every commit is labelled
+with the phase or fix round that produced it, so a prompt can be read beside the diff it
+produced.
+
+---
+
 ## Run it
 
 ### Docker — everything
