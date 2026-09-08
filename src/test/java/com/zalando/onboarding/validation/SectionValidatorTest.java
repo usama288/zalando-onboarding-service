@@ -157,6 +157,56 @@ class SectionValidatorTest {
                 .allSatisfy(violation -> assertThat(violation.section()).isEqualTo("businessRegistry"));
     }
 
+    // ---------------------------------------------------------------------------- consents
+
+    /**
+     * A required consent is answered by acceptance, not by presence. These three cases are the
+     * whole rule: not sent, sent as a refusal, sent as an acceptance.
+     *
+     * <p>The middle one is the reason the rule exists. `false` is not blank, so the ordinary
+     * required check treated it as answered, and layer 2 only re-examines creditCheck -- so an
+     * application could be submitted with termsOfService explicitly refused.
+     */
+    @Test
+    void anAbsentRequiredConsentIsRefused() {
+        Map<String, Object> values = consents();
+        values.remove("termsOfService");
+
+        assertThat(validate(Country.DE, OnboardingStep.CONSENT, values))
+                .singleElement()
+                .extracting(Violation::field, Violation::code, Violation::section)
+                .containsExactly("termsOfService", ViolationCode.REQUIRED, "consent");
+    }
+
+    @Test
+    void aRequiredConsentSentAsFalseIsRefusedExactlyLikeAnAbsentOne() {
+        Map<String, Object> values = consents();
+        values.put("termsOfService", false);
+
+        assertThat(validate(Country.DE, OnboardingStep.CONSENT, values))
+                .singleElement()
+                .extracting(Violation::field, Violation::code, Violation::section)
+                .containsExactly("termsOfService", ViolationCode.REQUIRED, "consent");
+    }
+
+    @Test
+    void aRequiredConsentSentAsAcceptedPasses() {
+        SectionValidation accepted = result(Country.DE, OnboardingStep.CONSENT, consents());
+
+        assertThat(accepted.violations()).isEmpty();
+        assertThat(accepted.values()).containsOnlyKeys("informationConfirmed", "termsOfService",
+                "dataProcessing", "privacyNotice", "creditCheck");
+    }
+
+    /** Every consent of the DE flow, accepted as the A11 {version, acceptedAt} record. */
+    private Map<String, Object> consents() {
+        Map<String, Object> values = new LinkedHashMap<>();
+        flows.findByCountry(Country.DE).section(OnboardingStep.CONSENT).orElseThrow().fields()
+                .forEach(field -> values.put(field.name(),
+                        Map.of("version", field.version(), "acceptedAt", "2026-09-08T10:00:00Z")));
+        return values;
+    }
+
     private List<Violation> validate(Country country, OnboardingStep step, Map<String, Object> values) {
         return result(country, step, values).violations();
     }

@@ -567,8 +567,9 @@ Only what is actually implemented.
   provider. Secure cross-device recovery would need an expiring emailed resume link plus proof
   of email ownership — both depend on notifications, which the assignment excludes.
 - **No rate limiting, no CSRF tokens, no field-level encryption at rest.**
-- **Consent validation has real holes** (B1 and B2 in [Bugs.md](Bugs.md)): a consent sent as
-  `false` passes layer 1, and consent `version`/`acceptedAt` are unvalidated client input.
+- **Consent `version` and `acceptedAt` are unvalidated client input** (B2 in
+  [Bugs.md](Bugs.md)). A refused consent is now rejected (B1, fixed), but the acceptance
+  record itself is still whatever the client sends.
 
 ---
 
@@ -610,7 +611,7 @@ a client that ignores the intended order:
 - `ApplicationTimestampsTest` pins `updated_at` ownership; `SecureTokenGeneratorTest` pins
   token entropy and uniqueness
 
-**Not covered.** No frontend automated tests — `app.js` was verified by walking a full German
+**Not covered.** No test asserts B2 in [Bugs.md](Bugs.md), which is still open. No frontend automated tests — `app.js` was verified by walking a full German
 application in a browser, which is honest but not repeatable in CI. No load or security
 testing. No test asserts the consent holes in [Bugs.md](Bugs.md), because they are open.
 
@@ -782,8 +783,8 @@ Roughly in the order the MVP's own questions would justify:
 3. **Expiring emailed resume links and verified email ownership** — the resume link and a
    verification link are the same artifact; the difference is only whether the form is gated on
    clicking it
-4. **Close the consent validation holes** and server-stamp consent version and time
-   ([Bugs.md](Bugs.md) B1, B2)
+4. **Server-stamp consent version and acceptance time** rather than trusting the client
+   ([Bugs.md](Bugs.md) B2)
 5. **Real registry, identity and banking adapters**, one country at a time, behind the seams
    that already exist
 6. **Asynchronous decisioning** and a back-office review queue, with status history and audit

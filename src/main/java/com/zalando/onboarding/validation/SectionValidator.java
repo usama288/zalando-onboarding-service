@@ -1,6 +1,7 @@
 package com.zalando.onboarding.validation;
 
 import com.zalando.onboarding.flow.FieldDefinition;
+import com.zalando.onboarding.flow.FieldType;
 import com.zalando.onboarding.flow.SectionDefinition;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -72,6 +73,10 @@ public class SectionValidator {
 
     private Optional<Violation> validateField(SectionDefinition section, FieldDefinition field,
                                               Map<String, Object> submitted, Object value) {
+        if (field.type() == FieldType.CONSENT) {
+            return consent(section, field, submitted, value);
+        }
+
         boolean absent = value == null || String.valueOf(value).trim().isEmpty();
 
         if (isRequired(field, submitted)) {
@@ -99,6 +104,27 @@ public class SectionValidator {
             if (violation.isPresent()) {
                 return violation.map(v -> v.inSection(section.id()));
             }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * A consent is answered by being accepted, and by nothing else.
+     *
+     * <p>Presence is not the test. {@code false} is a well-formed value that is not blank, so
+     * the ordinary required check counted it as answered and stored a refusal -- and layer 2
+     * only ever re-examines {@code creditCheck}, so every other consent could be submitted
+     * refused. Absent and refused are now the same violation, because to the applicant they
+     * are the same act: they did not agree.
+     *
+     * <p>Nothing else is checked here. A consent has no format, no length and no checksum;
+     * whether the box was ticked is the whole question.
+     */
+    private Optional<Violation> consent(SectionDefinition section, FieldDefinition field,
+                                        Map<String, Object> submitted, Object value) {
+        if (isRequired(field, submitted) && !ConsentAcceptance.isAccepted(value)) {
+            return Optional.of(violation(section, field.name(), ViolationCode.REQUIRED,
+                    "This consent must be accepted"));
         }
         return Optional.empty();
     }

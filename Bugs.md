@@ -3,12 +3,18 @@
 Found during the P4–P6 build and the frontend build, verified against a running instance on
 2026-09-08. Every entry below was reproduced, not inferred from reading code.
 
-Ordered by severity. Nothing here is fixed; the fixes are suggestions, not work done.
+Ordered by severity. Except where an entry says otherwise, nothing here is fixed and the
+fixes are suggestions rather than work done.
 B8 was found while writing the README and verifying its example payloads.
 
 ---
 
 ## B1 — A consent sent as `false` counts as answered, and the application submits
+
+> **FIXED.** A required `CONSENT` field must now be accepted, not merely present; absent
+> and `false` produce the same `REQUIRED` violation. Both layers share one definition of
+> acceptance (`ConsentAcceptance`). Numbering is left unchanged so existing references
+> still resolve.
 
 **Severity:** high — an application can be submitted with every consent explicitly refused.
 

@@ -68,27 +68,11 @@ public class SubmissionValidator {
         }
 
         Object accepted = sectionData(formData, consent.id()).get(CREDIT_CHECK_CONSENT);
-        if (isAccepted(accepted)) {
+        if (ConsentAcceptance.isAccepted(accepted)) {
             return Optional.empty();
         }
         return Optional.of(new Violation(CREDIT_CHECK_CONSENT, consent.id(), ViolationCode.REQUIRED,
                 "The credit check consent must be accepted before an application can be submitted"));
-    }
-
-    /**
-     * A consent counts as accepted when it carries an acceptance record -- per A11, a
-     * {@code {version, acceptedAt}} object -- or a plain true. Anything else, including
-     * absent, is a refusal.
-     */
-    private boolean isAccepted(Object value) {
-        if (value == null) {
-            return false;
-        }
-        if (value instanceof Map<?, ?> record) {
-            Object acceptedAt = record.get("acceptedAt");
-            return acceptedAt != null && !String.valueOf(acceptedAt).trim().isEmpty();
-        }
-        return String.valueOf(value).trim().equalsIgnoreCase("true");
     }
 
     @SuppressWarnings("unchecked")
