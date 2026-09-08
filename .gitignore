@@ -1,4 +1,9 @@
 HELP.md
+
+### Local environment overrides — never commit these ###
+.env
+.env.*
+*.local
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar

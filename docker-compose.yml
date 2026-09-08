@@ -1,3 +1,15 @@
+# Local demo stack only.
+#
+# The Postgres credentials below are hardcoded on purpose: this file exists so a reviewer can
+# run the application with one command, and the database it starts is a throwaway container on
+# localhost holding nothing but demo data. They are not a secret and are not used anywhere
+# else -- a deployment supplies SPRING_DATASOURCE_* from its own environment, which is why
+# application.yaml reads them as overridable variables rather than baking them in.
+#
+# SPRING_PROFILES_ACTIVE=dev on the app service is likewise deliberate, and likewise local
+# only: it exposes /api/dev/outbox, which has no authentication and returns resume links that
+# are bearer credentials.
+
 services:
   postgres:
     image: postgres:16-alpine
