@@ -123,6 +123,13 @@ Do not write any domain code yet. Bootstrap, compose, Dockerfile and CLAUDE.md o
 **Verify:** `./gradlew build` passes; `docker compose up` starts Postgres and the app;
 `CLAUDE.md` exists and reads correctly.
 
+> The contract above is reproduced as it was sent. The live `CLAUDE.md` has since diverged
+> in two places: the line *"Email … IS editable"* was corrected to say that email is
+> editable at the domain level but that V1 exposes no endpoint or UI to change it (see
+> `Bugs.md` B5), and the *Simplicity over cleverness* section recorded below was added
+> after P3. The log preserves what was sent; the repository holds the contract as it now
+> stands.
+
 ---
 
 ## P1 — Schema and domain model

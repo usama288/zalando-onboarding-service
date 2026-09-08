@@ -24,8 +24,9 @@ clarity matter more than surface area.
   draft (backward editing).
 - Only completed, validated steps are persisted. There is no autosave and no partial
   section state.
-- furthest_step means the furthest step reached, never "currently viewing". Viewing
-  position is client state.
+- last_completed_step records the last section actually completed, and is NULL for a
+  fresh draft. Where to resume is DERIVED from it, never stored. Viewing position is
+  client state and never touches the database.
 - Submission is immutable and idempotent.
 - Email is unique across SUBMITTED applications only. Duplicate drafts are allowed and
   harmless — enforcing uniqueness on drafts would let anyone lock a person out.
@@ -50,6 +51,20 @@ Country rules are never `if (country == DE)` branches and never database constra
 One `applications` table. All section data lives in a single `form_data` JSONB column.
 `schema_version` exists to interpret that blob after its shape changes — this is not
 flow versioning, which was deliberately rejected.
+
+## Simplicity over cleverness
+This is a five-hour MVP. When two designs both work, take the smaller one.
+
+Specifically, do not introduce: event sourcing, CQRS, a state-machine library, a
+rules engine, HATEOAS, an API versioning scheme, a mapping framework, custom test
+DSLs, shared abstract test base classes, or a frontend build step. Plain service
+methods, plain records, hand-written mapping, one test class per behaviour.
+
+Do not add an abstraction for a second case that does not exist yet. Three countries
+are the only variation this system has.
+
+Prefer finishing to polishing. An unfinished feature costs more than an unpolished
+one.
 
 ## Production mindset
 - Validate server-side, always.
