@@ -18,6 +18,14 @@ public record Violation(String field, String section, String code, String messag
         return new Violation(field, null, code, message);
     }
 
+    /**
+     * A violation of the application as a whole, naming neither a field nor a section --
+     * "this application has been submitted" is not about any one part of the form.
+     */
+    public static Violation application(String code, String message) {
+        return new Violation(null, null, code, message);
+    }
+
     /** A section-level violation, naming no single field. */
     public static Violation section(String section, String code, String message) {
         return new Violation(null, section, code, message);

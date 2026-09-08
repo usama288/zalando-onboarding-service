@@ -30,6 +30,24 @@ public final class ViolationCode {
     /** The request named a section this country's flow does not have. Used from P4's API. */
     public static final String SECTION_UNKNOWN = "SECTION_UNKNOWN";
 
+    /** Forward gating: the section before this one has not been completed yet. */
+    public static final String SECTION_NOT_REACHABLE = "SECTION_NOT_REACHABLE";
+
+    /** A write was attempted against an application that has already been submitted. */
+    public static final String APPLICATION_ALREADY_SUBMITTED = "APPLICATION_ALREADY_SUBMITTED";
+
+    /** Layer 2: another SUBMITTED application already carries this email address. */
+    public static final String EMAIL_ALREADY_SUBMITTED = "EMAIL_ALREADY_SUBMITTED";
+
+    /** The request named a country this service does not onboard in. */
+    public static final String COUNTRY_UNKNOWN = "COUNTRY_UNKNOWN";
+
+    /** The request body or a path variable could not be read at all. */
+    public static final String MALFORMED_REQUEST = "MALFORMED_REQUEST";
+
+    /** Two writers raced on the same row; the loser is told to re-read and retry. */
+    public static final String CONCURRENT_MODIFICATION = "CONCURRENT_MODIFICATION";
+
     private ViolationCode() {
     }
 }

@@ -36,6 +36,16 @@ server:
     whitelabel:
       enabled: false
 
+onboarding:
+  # Where a resume link points. Configured, not derived from the inbound request: the link
+  # is a bearer credential issued for a browser that is not the one making the call, so a
+  # spoofed Host header must not be able to aim it somewhere else.
+  resume-base-url: ${ONBOARDING_RESUME_BASE_URL:http://localhost:8080/resume}
+
 logging:
   level:
     com.zalando.onboarding: DEBUG
+  pattern:
+    # Every line carries the requestId the response header echoed, which is how a support
+    # request is traced without ever logging an email, an IBAN or a token (A13).
+    level: "%5p [%X{requestId:-no-request}]"

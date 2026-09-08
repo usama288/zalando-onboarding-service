@@ -10,6 +10,7 @@ import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -97,6 +98,9 @@ public class Application {
     /** Current shape of the {@code form_data} blob. */
     public static final short CURRENT_SCHEMA_VERSION = 1;
 
+    /** Key stamped into every stored section, so drop-off per step is answerable (A2). */
+    public static final String COMPLETED_AT = "completedAt";
+
     protected Application() {
         // for JPA
     }
@@ -136,6 +140,44 @@ public class Application {
         this.reference = Objects.requireNonNull(reference, "reference");
         this.submittedAt = Objects.requireNonNull(now, "now");
         this.status = ApplicationStatus.SUBMITTED;
+    }
+
+    /**
+     * Stores one validated section and, when it is the next one due, records that progress.
+     *
+     * <p>Whether {@code advanceTo} is set is the caller's decision because only the caller
+     * holds the country's section order. This class enforces the half of the rule it can see:
+     * the write happens to a draft or not at all, and section data and progress move together
+     * in one call so a section can never be stored without its progress being reconsidered.
+     *
+     * @param values    the normalised values from layer 1, never the raw payload
+     * @param advanceTo the step to record as furthest completed, or {@code null} to leave
+     *                  {@code last_completed_step} exactly where it is. Backward editing
+     *                  passes null; it must never drag progress back to the edited section
+     */
+    public void completeSection(String sectionId, Map<String, Object> values,
+                                OnboardingStep advanceTo, Instant completedAt) {
+        requireDraft("save a section of");
+        Objects.requireNonNull(sectionId, "sectionId");
+        Objects.requireNonNull(completedAt, "completedAt");
+
+        Map<String, Object> section = new LinkedHashMap<>(values);
+        section.put(COMPLETED_AT, completedAt.toString());
+
+        // A fresh map rather than an in-place put: dirty checking on a JSON-mapped Map must
+        // not depend on Hibernate noticing a mutation inside the value it already holds.
+        Map<String, Object> merged = new LinkedHashMap<>(formData);
+        merged.put(sectionId, section);
+        this.formData = merged;
+
+        if (advanceTo != null) {
+            this.lastCompletedStep = advanceTo;
+        }
+    }
+
+    /** True once this section has been completed and stored at least once. */
+    public boolean hasSection(String sectionId) {
+        return formData.containsKey(sectionId);
     }
 
     /** Email shapes nothing, so a mistyped address stays correctable while the draft lives. */
